@@ -1,0 +1,15 @@
+CREATE TABLE goals (
+  id VARCHAR(36) PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  target_value INT NOT NULL,
+  current_value INT DEFAULT 0,
+  reward_points INT DEFAULT 0,
+  start_date DATE NOT NULL,
+  end_date DATE,
+  completed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

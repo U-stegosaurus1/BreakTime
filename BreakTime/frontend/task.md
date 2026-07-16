@@ -1,0 +1,12 @@
+- [ ] Add export statements for BorderRadius and Shadow in `src/theme/index.ts`
+- [ ] Create `src/theme/shadow.ts` (already created) and ensure it is exported
+- [ ] Update `src/components/GlassCard.tsx` to use `BorderRadius` and `Shadow` tokens
+- [ ] Refactor `src/components/GlassCard.tsx` to use `colors.glassBackground` and `colors.glassBorder`
+- [ ] Create `src/store/themeStore.ts` with `isDarkMode` boolean and `toggleTheme` action
+- [ ] Update `src/theme/useTheme.ts` to read from `themeStore` and return appropriate colors (for now just forward current colors)
+- [ ] Create Settings screen `src/screens/Profile/SettingsScreen.tsx` with a toggle switch for dark mode
+- [ ] Add navigation entry for SettingsScreen in `src/navigation/AppNavigator.tsx`
+- [ ] Update any imports of `BorderRadius` and `Shadow` across the app (e.g., AboutScreen, HomeScreen) to import from theme
+- [ ] Enhance `src/theme/glass.css` with glass‑morphism styling
+- [ ] Run TypeScript build to ensure no type errors
+- [ ] Add a basic unit test for `useTheme` dark mode toggle in `__tests__/theme.test.ts`

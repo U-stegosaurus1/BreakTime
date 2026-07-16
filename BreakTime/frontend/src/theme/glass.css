@@ -1,0 +1,54 @@
+/* glass.css – Global glass‑morphism styles */
+
+/*
+  The glass effect combines a semi‑transparent background with a backdrop‑filter blur.
+  It works on modern browsers and on the Expo web build.
+*/
+
+.glass {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Gradient utilities for primary buttons and accents */
+.gradient-primary {
+  background: linear-gradient(135deg, #00bfa6, #00897b);
+  color: #fff;
+}
+
+.gradient-secondary {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+}
+
+/* Dark‑mode overrides – the theme can toggle using a body class */
+body.dark .glass {
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+body.dark .gradient-primary {
+  background: linear-gradient(135deg, #00bfa6, #00695c);
+}
+
+/* Utility spacing – mimic Tailwind‑like semantics without pulling the library */
+.m-2 { margin: 0.5rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.p-2 { padding: 0.5rem; }
+.pt-2 { padding-top: 0.5rem; }
+.pb-2 { padding-bottom: 0.5rem; }
+
+/* Fade‑in animation for screen transitions */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}

@@ -1,0 +1,246 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  password         String
+  fullName         String
+  university       String?
+  avatarUrl        String?
+  level            Int       @default(1)
+  xp               Int       @default(0)
+  totalPoints      Int       @default(0)
+  currentStreak    Int       @default(0)
+  longestStreak    Int       @default(0)
+  lastActiveDate   DateTime?
+  fcmToken         String?
+  isActive         Boolean   @default(true)
+  isEmailVerified  Boolean   @default(false)
+  emailVerificationToken String?
+  emailVerificationExpires DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  activities       ActivityLog[]
+  challengeProgress ChallengeProgress[]
+  userBadges       UserBadge[]
+  notifications    Notification[]
+  refreshTokens    RefreshToken[]
+  goals            Goal[]
+  settings         Settings?
+  sentFriendships  Friendship[]  @relation("FriendshipSender")
+  receivedFriendships Friendship[] @relation("FriendshipReceiver")
+  leaderboardEntries LeaderboardEntry[]
+  pointsHistory      PointsHistory[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model ActivityLog {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityType String   // steps, walk, stretch, active_minutes, water
+  value        Float
+  unit         String   // count, minutes, ml
+  pointsEarned Int      @default(0)
+  loggedAt     DateTime @default(now())
+  metadata     Json?
+
+  @@index([userId, loggedAt])
+  @@map("activity_logs")
+}
+
+model Challenge {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  type        String   // daily, weekly, monthly
+  category    String   // steps, stretch, breaks, water, active_time
+  targetValue Float
+  unit        String
+  points      Int
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  progress    ChallengeProgress[]
+
+  @@map("challenges")
+}
+
+model ChallengeProgress {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  currentValue Float   @default(0)
+  isCompleted Boolean  @default(false)
+  completedAt DateTime?
+  startedAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@unique([userId, challengeId, startedAt])
+  @@index([userId, isCompleted])
+  @@map("challenge_progress")
+}
+
+model Badge {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  icon        String
+  color       String
+  requirement String
+  requirementValue Int @default(0)
+  createdAt   DateTime @default(now())
+
+  userBadges  UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId  String
+  badge    Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  earnedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      String   // reminder, achievement, challenge, social
+  isRead    Boolean  @default(false)
+  data      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Goal {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // steps, active_minutes, breaks, water
+  targetValue Float
+  unit        String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("goals")
+}
+
+model Settings {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationsEnabled   Boolean  @default(true)
+  breakReminders         Boolean  @default(true)
+  breakReminderInterval  Int      @default(60) // minutes
+  hydrationReminders     Boolean  @default(true)
+  hydrationInterval      Int      @default(120) // minutes
+  dailyChallengeReminder Boolean  @default(true)
+  soundEnabled           Boolean  @default(true)
+  vibrationEnabled       Boolean  @default(true)
+  darkMode               Boolean  @default(false)
+  updatedAt              DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model Friendship {
+  id         String   @id @default(uuid())
+  senderId   String
+  sender     User     @relation("FriendshipSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User     @relation("FriendshipReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  status     String   @default("pending") // pending, accepted, blocked
+  createdAt  DateTime @default(now())
+
+  @@unique([senderId, receiverId])
+  @@map("friendships")
+}
+
+model LeaderboardEntry {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // global, university, weekly
+  points    Int
+  rank      Int?
+  period    String   // 2024-W01, 2024-01, all-time
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, type, period])
+  @@index([type, period, points])
+  @@map("leaderboard_entries")
+}
+
+model Reward {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  cost        Int
+  icon        String
+  category    String
+  isActive    Boolean  @default(true)
+  stock       Int?
+  createdAt   DateTime @default(now())
+
+  @@map("rewards")
+}
+
+model ActivityType {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  name         String
+  emoji        String
+  pointsPerUnit Float
+  unit         String
+  createdAt    DateTime @default(now())
+
+  @@map("activity_types")
+}
+
+model PointsHistory {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points       Int
+  description  String
+  earnedAt     DateTime @default(now())
+
+  @@index([userId, earnedAt])
+  @@map("points_history")
+}

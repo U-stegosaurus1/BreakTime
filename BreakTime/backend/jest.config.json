@@ -1,0 +1,12 @@
+{
+  "preset": "ts-jest",
+  "testEnvironment": "node",
+  "testMatch": ["**/tests/**/*.test.ts"],
+  "collectCoverageFrom": ["src/**/*.ts"],
+  "setupFilesAfterFramework": [],
+  "globals": {
+    "ts-jest": {
+      "tsconfig": "tsconfig.json"
+    }
+  }
+}
