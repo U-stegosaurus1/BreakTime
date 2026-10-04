@@ -1,28 +1,25 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Switch,
-  TouchableOpacity, StatusBar, ActivityIndicator, Alert,
+  TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { BorderRadius, Shadow } from '../../theme';
-import { useTheme } from '../../theme/useTheme';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { settingsApi } from '../../services/api';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuthStore } from '../../store/authStore';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
 export default function SettingsScreen({ navigation }: Props) {
-  const { colors, isDarkMode, toggleTheme } = useTheme();
-  const { logout, user } = useAuthStore();
+  const { logout } = useAuthStore();
   const queryClient = useQueryClient();
 
   const defaultSettings = {
-    notificationsEnabled: true,
+    notificationsEnabled:   true,
     dailyChallengeReminder: true,
-    soundEnabled: true,
-    vibrationEnabled: true,
+    soundEnabled:           true,
+    vibrationEnabled:       true,
   };
 
   const { data: settings = defaultSettings, isLoading } = useQuery({
@@ -31,198 +28,146 @@ export default function SettingsScreen({ navigation }: Props) {
   });
 
   const { mutate: updateSettings } = useMutation({
-    mutationFn: (newSettings: object) => settingsApi.update(newSettings).catch(() => ({ data: { data: { ...settings, ...newSettings } } })),
-    onSuccess: (res) => {
-      queryClient.setQueryData(['settings'], res.data.data);
-    },
+    mutationFn: (newSettings: object) =>
+      settingsApi.update(newSettings).catch(() => ({ data: { data: { ...settings, ...newSettings } } })),
+    onSuccess: (res) => { queryClient.setQueryData(['settings'], res.data.data); },
   });
 
-  const toggleVal = (key: string, currentVal: boolean) => {
-    updateSettings({ [key]: !currentVal });
-  };
+  const toggleVal = (key: string, currentVal: boolean) => updateSettings({ [key]: !currentVal });
 
-  const handleLogout = () => {
+  const handleLogout = () =>
     Alert.alert('Logout', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Logout', style: 'destructive', onPress: logout },
     ]);
-  };
 
-  const handleNotImplemented = (feature: string) => {
+  const handleNotImplemented = (feature: string) =>
     Alert.alert('Coming Soon', `${feature} will be available in the next update!`);
-  };
 
   if (isLoading) {
     return (
-      <View style={[styles.loadingWrap, {backgroundColor: colors.background}]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.loadingWrap}>
+        <ActivityIndicator size="large" color="#6C3AE0" />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, {backgroundColor: colors.background}]}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={colors.card} />
-      
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
       {/* Header */}
-      <View style={[styles.header, {backgroundColor: colors.card, borderBottomColor: colors.border}]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color={colors.textPrimary} />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={22} color="#1A1A2E" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: colors.textPrimary}]}>Settings</Text>
+        <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        
+
         {/* Account Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Account</Text>
-          <View style={[styles.card, {backgroundColor: colors.card}]}>
-            <ActionRow
-              icon="account-edit-outline"
-              title="Edit Profile"
-              colors={colors}
-              onPress={() => navigation.navigate('EditProfile')}
-            />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <ActionRow
-              icon="lock-outline"
-              title="Change Password"
-              colors={colors}
-              onPress={() => handleNotImplemented('Change Password')}
-            />
+          <Text style={styles.sectionTitle}>Account</Text>
+          <View style={styles.card}>
+            <ActionRow icon="person-circle-outline" title="Edit Profile"      onPress={() => navigation.navigate('EditProfile')} />
+            <View style={styles.divider} />
+            <ActionRow icon="lock-closed-outline"   title="Change Password"   onPress={() => handleNotImplemented('Change Password')} />
           </View>
         </View>
 
-        {/* Notifications Section */}
+        {/* Notifications */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Notifications</Text>
-          <View style={[styles.card, {backgroundColor: colors.card}]}>
+          <Text style={styles.sectionTitle}>Notifications</Text>
+          <View style={styles.card}>
             <SettingRow
-              icon="bell-ring-outline"
+              iconName="notifications-outline"
               title="Push Notifications"
               desc="Enable all app alerts and reminders"
               value={settings.notificationsEnabled}
-              colors={colors}
               onToggle={() => toggleVal('notificationsEnabled', settings.notificationsEnabled)}
             />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.divider} />
             <SettingRow
-              icon="target"
+              iconName="flag-outline"
               title="Daily Challenge Reminders"
               desc="Remind me to complete daily active challenges"
               value={settings.dailyChallengeReminder}
               disabled={!settings.notificationsEnabled}
-              colors={colors}
               onToggle={() => toggleVal('dailyChallengeReminder', settings.dailyChallengeReminder)}
             />
           </View>
         </View>
 
-        {/* Preferences Section */}
+        {/* Preferences */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>App Preferences</Text>
-          <View style={[styles.card, {backgroundColor: colors.card}]}>
+          <Text style={styles.sectionTitle}>App Preferences</Text>
+          <View style={styles.card}>
             <SettingRow
-              icon="weather-night"
-              title="Dark Mode"
-              desc="Toggle between light and dark themes"
-              value={isDarkMode}
-              colors={colors}
-              onToggle={toggleTheme}
-            />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <SettingRow
-              icon="volume-high"
+              iconName="volume-high-outline"
               title="Sounds"
               desc="Play completion sounds and cheers"
               value={settings.soundEnabled}
-              colors={colors}
               onToggle={() => toggleVal('soundEnabled', settings.soundEnabled)}
             />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.divider} />
             <SettingRow
-              icon="vibrate"
+              iconName="phone-portrait-outline"
               title="Vibration"
               desc="Haptic feedback on taps and goals"
               value={settings.vibrationEnabled}
-              colors={colors}
               onToggle={() => toggleVal('vibrationEnabled', settings.vibrationEnabled)}
             />
           </View>
         </View>
 
-        {/* Support Section */}
+        {/* Support & About */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Support & About</Text>
-          <View style={[styles.card, {backgroundColor: colors.card}]}>
-            <ActionRow
-              icon="help-circle-outline"
-              title="Help & Support"
-              colors={colors}
-              onPress={() => handleNotImplemented('Help & Support')}
-            />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <ActionRow
-              icon="file-document-outline"
-              title="Terms of Service"
-              colors={colors}
-              onPress={() => handleNotImplemented('Terms of Service')}
-            />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <ActionRow
-              icon="shield-check-outline"
-              title="Privacy Policy"
-              colors={colors}
-              onPress={() => handleNotImplemented('Privacy Policy')}
-            />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <ActionRow
-              icon="information-outline"
-              title="About BreakTime"
-              colors={colors}
-              onPress={() => navigation.navigate('About')}
-            />
+          <Text style={styles.sectionTitle}>Support & About</Text>
+          <View style={styles.card}>
+            <ActionRow icon="help-circle-outline"    title="Help & Support"    onPress={() => handleNotImplemented('Help & Support')} />
+            <View style={styles.divider} />
+            <ActionRow icon="document-text-outline"  title="Terms of Service"  onPress={() => handleNotImplemented('Terms of Service')} />
+            <View style={styles.divider} />
+            <ActionRow icon="shield-checkmark-outline" title="Privacy Policy"  onPress={() => handleNotImplemented('Privacy Policy')} />
+            <View style={styles.divider} />
+            <ActionRow icon="information-circle-outline" title="About BreakTime" onPress={() => navigation.navigate('About')} />
           </View>
         </View>
 
-        {/* Danger Zone Section */}
+        {/* Logout */}
         <View style={styles.section}>
-          <View style={[styles.card, {backgroundColor: colors.card, marginTop: 10}]}>
-            <TouchableOpacity style={styles.actionRow} onPress={handleLogout}>
-              <Icon name="logout" size={22} color="#EF4444" style={styles.actionIcon} />
-              <Text style={[styles.actionTitle, { color: '#EF4444', flex: 1 }]}>Log Out</Text>
+          <View style={styles.card}>
+            <TouchableOpacity style={styles.actionRow} onPress={handleLogout} activeOpacity={0.7}>
+              <Ionicons name="log-out-outline" size={22} color="#EF4444" style={{ marginRight: 14 }} />
+              <Text style={[styles.actionTitle, { color: '#EF4444' }]}>Log Out</Text>
+              <Ionicons name="chevron-forward" size={18} color="#EF4444" style={{ marginLeft: 'auto' }} />
             </TouchableOpacity>
           </View>
         </View>
 
-        <Text style={[styles.version, {color: colors.textTertiary}]}>Version 1.0.0 (Production Build)</Text>
+        <Text style={styles.version}>Version 1.0.0 (Production Build)</Text>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-interface RowProps {
-  icon: string;
-  title: string;
-  desc?: string;
-  value: boolean;
-  colors: any;
-  disabled?: boolean;
-  onToggle: () => void;
+// ── Row sub-components ─────────────────────────────────────────────────────────
+interface SettingRowProps {
+  iconName: string; title: string; desc?: string;
+  value: boolean; disabled?: boolean; onToggle: () => void;
 }
-
-function SettingRow({ icon, title, desc, value, disabled = false, onToggle, colors }: RowProps) {
+function SettingRow({ iconName, title, desc, value, disabled = false, onToggle }: SettingRowProps) {
   return (
     <View style={[styles.row, disabled && { opacity: 0.5 }]}>
-      <Icon name={icon} size={22} color={colors.textSecondary} style={styles.rowIcon} />
+      <Ionicons name={iconName as any} size={22} color="#6C3AE0" style={styles.rowIcon} />
       <View style={styles.rowText}>
-        <Text style={[styles.rowTitle, { color: colors.textPrimary }]}>{title}</Text>
-        {desc && <Text style={[styles.rowDesc, { color: colors.textSecondary }]}>{desc}</Text>}
+        <Text style={styles.rowTitle}>{title}</Text>
+        {desc && <Text style={styles.rowDesc}>{desc}</Text>}
       </View>
       <Switch
-        trackColor={{ false: colors.border, true: colors.primary }}
+        trackColor={{ false: '#E8E4F0', true: '#6C3AE0' }}
         thumbColor="#ffffff"
         value={value}
         onValueChange={onToggle}
@@ -232,54 +177,48 @@ function SettingRow({ icon, title, desc, value, disabled = false, onToggle, colo
   );
 }
 
-interface ActionRowProps {
-  icon: string;
-  title: string;
-  colors: any;
-  onPress: () => void;
-}
-
-function ActionRow({ icon, title, colors, onPress }: ActionRowProps) {
+interface ActionRowProps { icon: string; title: string; onPress: () => void; }
+function ActionRow({ icon, title, onPress }: ActionRowProps) {
   return (
-    <TouchableOpacity style={styles.actionRow} onPress={onPress}>
-      <Icon name={icon} size={22} color={colors.textSecondary} style={styles.actionIcon} />
-      <Text style={[styles.actionTitle, { color: colors.textPrimary, flex: 1 }]}>{title}</Text>
-      <Icon name="chevron-right" size={20} color={colors.border} />
+    <TouchableOpacity style={styles.actionRow} onPress={onPress} activeOpacity={0.7}>
+      <Ionicons name={icon as any} size={22} color="#6C3AE0" style={{ marginRight: 14 }} />
+      <Text style={[styles.actionTitle, { flex: 1 }]}>{title}</Text>
+      <Ionicons name="chevron-forward" size={18} color="#C0BDCC" />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  safeArea:    { flex: 1, backgroundColor: '#FFFFFF' },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
+
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#F0EFF5',
   },
-  backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'flex-start', justifyContent: 'center' },
-  headerTitle: { fontFamily: 'Poppins-Bold', fontSize: 18 },
-  content: { padding: 16, gap: 24, paddingBottom: 40 },
-  section: { gap: 8 },
-  sectionTitle: { fontFamily: 'Poppins-Bold', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, paddingLeft: 12 },
-  card: { borderRadius: 16, paddingHorizontal: 16, ...Shadow.sm },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 },
+  backBtn:     { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F3FF', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontFamily: 'Poppins-Bold', fontSize: 18, color: '#1A1A2E' },
+
+  content:      { padding: 16, gap: 24, paddingBottom: 40 },
+  section:      { gap: 8 },
+  sectionTitle: { fontFamily: 'Poppins-Bold', fontSize: 11, color: '#9890B8', textTransform: 'uppercase', letterSpacing: 0.5, paddingLeft: 4, marginBottom: -4 },
+
+  card: {
+    backgroundColor: '#FFFFFF', borderRadius: 16, paddingHorizontal: 16,
+    borderWidth: 1, borderColor: '#F0EFF5',
+    shadowColor: '#1A1A2E', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
+  },
+  divider: { height: 1, backgroundColor: '#F0EFF5' },
+
+  row:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 },
   rowIcon: { marginRight: 14 },
   rowText: { flex: 1, marginRight: 16 },
-  rowTitle: { fontFamily: 'Poppins-Medium', fontSize: 15 },
-  rowDesc: { fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 2 },
-  actionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
-  actionIcon: { marginRight: 14 },
-  actionTitle: { fontFamily: 'Poppins-Medium', fontSize: 15 },
-  divider: { height: 1 },
-  intervalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 },
-  counter: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 4, borderRadius: 8 },
-  counterBtn: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', ...Shadow.sm },
-  counterBtnText: { fontSize: 18, fontFamily: 'Poppins-Bold' },
-  counterValue: { fontFamily: 'Poppins-Bold', fontSize: 14, minWidth: 28, textAlign: 'center' },
-  version: { textAlign: 'center', fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 12, marginBottom: 24 },
+  rowTitle:{ fontFamily: 'Poppins-Medium', fontSize: 15, color: '#1A1A2E' },
+  rowDesc: { fontFamily: 'Poppins-Regular', fontSize: 11, color: '#9890B8', marginTop: 2 },
+
+  actionRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
+  actionTitle: { fontFamily: 'Poppins-Medium', fontSize: 15, color: '#1A1A2E' },
+
+  version: { textAlign: 'center', fontFamily: 'Poppins-Regular', fontSize: 11, color: '#9890B8', marginTop: 12, marginBottom: 24 },
 });

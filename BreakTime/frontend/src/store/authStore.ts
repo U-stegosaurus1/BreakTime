@@ -1,8 +1,15 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+} from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { authApi, userApi } from '../services/api';
+import { Alert } from 'react-native';
 
 export interface User {
   id: string;
@@ -30,105 +37,133 @@ interface AuthState {
   updateUser: (user: Partial<User>) => void;
 }
 
+/** Build a minimal User from a Firebase user when the backend is unreachable */
+const fallbackUser = (firebaseUser: any): User => ({
+  id: firebaseUser.uid,
+  email: firebaseUser.email ?? '',
+  fullName: firebaseUser.displayName ?? 'User',
+  level: 1,
+  xp: 0,
+  totalPoints: 0,
+  currentStreak: 0,
+  longestStreak: 0,
+});
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  isLoading: true, // Start true while onAuthStateChanged runs
+  isLoading: true,
   isAuthenticated: false,
 
   login: async (email, password) => {
     set({ isLoading: true });
     try {
-      // Mock login delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      const dummyUser: User = {
-        id: 'dummy-id',
-        email,
-        fullName: 'Test User',
-        level: 1,
-        xp: 0,
-        totalPoints: 100,
-        currentStreak: 1,
-        longestStreak: 5,
-      };
-      await AsyncStorage.setItem('user', JSON.stringify(dummyUser));
-      set({ user: dummyUser, isAuthenticated: true });
-    } finally {
+      // Bypassing Firebase auth for local testing
+      // await signInWithEmailAndPassword(auth, email, password);
+      
+      // Simulating a successful login with a mock user
+      set({ 
+        user: {
+          id: 'mock-user-id',
+          email: email,
+          fullName: 'Test User',
+          level: 1,
+          xp: 0,
+          totalPoints: 0,
+          currentStreak: 0,
+          longestStreak: 0
+        }, 
+        isAuthenticated: true,
+        isLoading: false 
+      });
+    } catch (error) {
       set({ isLoading: false });
-    }
-  },
-
-  googleLogin: async () => {
-    set({ isLoading: true });
-    try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      const dummyUser: User = {
-        id: 'dummy-google-id',
-        email: 'google@example.com',
-        fullName: 'Google User',
-        level: 5,
-        xp: 250,
-        totalPoints: 500,
-        currentStreak: 3,
-        longestStreak: 10,
-      };
-      await AsyncStorage.setItem('user', JSON.stringify(dummyUser));
-      set({ user: dummyUser, isAuthenticated: true });
-    } finally {
-      set({ isLoading: false });
+      throw error;
     }
   },
 
   register: async (registerData) => {
     set({ isLoading: true });
     try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      const dummyUser: User = {
-        id: 'new-user-id',
-        email: registerData.email,
-        fullName: registerData.fullName,
-        university: registerData.university,
-        level: 1,
-        xp: 0,
-        totalPoints: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-      };
-      await AsyncStorage.setItem('user', JSON.stringify(dummyUser));
-      set({ user: dummyUser, isAuthenticated: true });
+      const { user: firebaseUser } = await createUserWithEmailAndPassword(
+        auth,
+        registerData.email,
+        registerData.password,
+      );
+
+      // Sync the new user to our backend (Firestore via API)
+      try {
+        await authApi.register({
+          email: registerData.email,
+          fullName: registerData.fullName,
+          university: registerData.university,
+        });
+        const { data } = await userApi.getProfile();
+        if (data?.success && data?.data) {
+          set({ user: data.data as User, isAuthenticated: true });
+        } else {
+          set({ user: fallbackUser(firebaseUser), isAuthenticated: true });
+        }
+      } catch (apiError) {
+        console.warn('Backend sync failed — using Firebase fallback:', apiError);
+        set({ user: fallbackUser(firebaseUser), isAuthenticated: true });
+      }
     } finally {
       set({ isLoading: false });
     }
   },
 
   logout: async () => {
-    await AsyncStorage.removeItem('user');
-    set({ user: null, isAuthenticated: false });
+    set({ isLoading: true });
+    try {
+      await signOut(auth);
+      set({ user: null, isAuthenticated: false });
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   forgotPassword: async (email) => {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    console.log('Mock password reset sent to:', email);
+    await sendPasswordResetEmail(auth, email);
+  },
+
+  googleLogin: async () => {
+    Alert.alert(
+      'Google Sign-In',
+      'Google login requires a native build. Please use email/password for now.',
+      [{ text: 'OK' }],
+    );
   },
 
   loadStoredAuth: async () => {
-    try {
-      const stored = await AsyncStorage.getItem('user');
-      if (stored) {
-        set({ user: JSON.parse(stored), isAuthenticated: true, isLoading: false });
-      } else {
-        set({ user: null, isAuthenticated: false, isLoading: false });
-      }
-    } catch (e) {
-      set({ user: null, isAuthenticated: false, isLoading: false });
-    }
+    return new Promise<void>((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          try {
+            // Try to sync login timestamp & fetch profile from backend
+            await authApi.login().catch(() => {});
+            const { data } = await userApi.getProfile();
+            if (data?.success && data?.data) {
+              set({ user: data.data as User, isAuthenticated: true, isLoading: false });
+            } else {
+              set({ user: fallbackUser(firebaseUser), isAuthenticated: true, isLoading: false });
+            }
+          } catch {
+            set({ user: fallbackUser(firebaseUser), isAuthenticated: true, isLoading: false });
+          }
+        } else {
+          set({ user: null, isAuthenticated: false, isLoading: false });
+        }
+        resolve();
+        unsubscribe(); // only listen once on startup
+      });
+    });
   },
 
   updateUser: (updates) => {
     const current = get().user;
     if (current) {
-      const updated = { ...current, ...updates };
-      set({ user: updated });
-      AsyncStorage.setItem('user', JSON.stringify(updated));
+      set({ user: { ...current, ...updates } });
+      userApi.updateProfile(updates).catch(console.error);
     }
   },
 }));

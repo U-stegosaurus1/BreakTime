@@ -1,30 +1,26 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, StatusBar, Alert, ActivityIndicator,
+  SafeAreaView, StatusBar, Alert, ActivityIndicator, Platform,
 } from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../navigation/AppNavigator';
-import { BorderRadius, Shadow } from '../../theme';
-import { useTheme } from '../../theme/useTheme';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { authApi } from '../../services/api';
 
-type Props = { navigation: NativeStackNavigationProp<RootStackParamList, any> };
-
-export default function ForgotPasswordScreen({ navigation }: Props) {
-  const [email, setEmail] = useState('');
+export default function ForgotPasswordScreen() {
+  const navigation = useNavigation<any>();
+  const [email, setEmail]     = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const { colors, isDarkMode } = useTheme();
+  const [sent, setSent]       = useState(false);
 
   const handleReset = async () => {
-    if (!email) {
+    if (!email.trim()) {
       Alert.alert('Error', 'Please enter your email address');
       return;
     }
     setLoading(true);
     try {
-      await authApi.forgotPassword(email);
+      await authApi.forgotPassword(email.trim());
       setSent(true);
     } catch (e: any) {
       Alert.alert('Failed', e.response?.data?.message || 'Something went wrong');
@@ -34,104 +30,136 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={colors.background} />
-      
-      {/* Header back btn */}
-      <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: colors.card }]}>
-        <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
-      </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F3FF" />
 
-      {!sent ? (
-        <View style={styles.formWrap}>
-          <Text style={[styles.title, { color: colors.primary }]}>Forgot Password? 🔑</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enter your registered email address and we'll send you instructions to reset your password.</Text>
+      <View style={styles.content}>
+        {/* Back button */}
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={22} color="#1A1A2E" />
+        </TouchableOpacity>
 
-          <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={styles.inputIcon}>📧</Text>
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Email Address"
-              placeholderTextColor={colors.textTertiary}
-              defaultValue={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-            />
+        {!sent ? (
+          /* ── Request form ── */
+          <View style={styles.formWrap}>
+            <Text style={styles.title}>Forgot Password? 🔑</Text>
+            <Text style={styles.subtitle}>
+              Enter your registered email address and we'll send you instructions to reset your password.
+            </Text>
+
+            <View style={styles.inputRow}>
+              <Ionicons name="mail-outline" size={20} color="#9890B8" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Email Address"
+                placeholderTextColor="#C4BFD8"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.actionBtn, loading && { opacity: 0.7 }]}
+              onPress={handleReset}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.actionBtnText}>Send Instructions</Text>
+              }
+            </TouchableOpacity>
           </View>
+        ) : (
+          /* ── Success state ── */
+          <View style={styles.successWrap}>
+            <Text style={styles.successEmoji}>📧</Text>
+            <Text style={styles.title}>Instructions Sent!</Text>
+            <Text style={styles.successSub}>
+              We've sent password reset instructions to{' '}
+              <Text style={styles.boldEmail}>{email}</Text>.{'\n'}Please check your inbox.
+            </Text>
 
-          <TouchableOpacity style={[styles.resetBtn, { backgroundColor: colors.primary }]} onPress={handleReset} disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.resetBtnText}>Send Instructions</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.successWrap}>
-          <Text style={styles.successEmoji}>📧</Text>
-          <Text style={[styles.title, { color: colors.primary }]}>Instructions Sent!</Text>
-          <Text style={[styles.successSub, { color: colors.textSecondary }]}>
-            We've sent password reset instructions to <Text style={[styles.boldEmail, { color: colors.text }]}>{email}</Text>. Please check your inbox.
-          </Text>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => navigation.navigate('Login')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.actionBtnText}>Back to Login</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.resetBtn, { backgroundColor: colors.primary, width: '100%' }]} onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.resetBtnText}>Back to Login</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.resendBtn} onPress={() => setSent(false)}>
-            <Text style={[styles.resendText, { color: colors.primary }]}>Try another email address</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </ScrollView>
+            <TouchableOpacity style={styles.resendBtn} onPress={() => setSent(false)}>
+              <Text style={styles.resendText}>Try another email address</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 24, paddingTop: 40 },
+  safeArea: { flex: 1, backgroundColor: '#F5F3FF' },
+  content:  { flex: 1, padding: 24, paddingTop: Platform.OS === 'android' ? 16 : 12 },
+
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center', justifyContent: 'center',
     marginBottom: 32,
-    ...Shadow.sm,
+    shadowColor: '#1A1A2E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  backIcon: { fontSize: 18, fontWeight: '700' },
+
   formWrap: { flex: 1 },
-  title: { fontFamily: 'Nunito-Black', fontSize: 26, marginBottom: 8 },
-  subtitle: { fontSize: 14, lineHeight: 20, marginBottom: 32 },
-  inputWrap: {
+
+  title:    { fontFamily: 'Poppins-Bold',    fontSize: 24, color: '#6C3AE0', marginBottom: 8 },
+  subtitle: { fontFamily: 'Poppins-Regular', fontSize: 14, color: '#9890B8', lineHeight: 22, marginBottom: 32 },
+
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderRadius: BorderRadius.md,
-    marginBottom: 20,
+    borderColor: '#E8E4F0',
+    borderRadius: 12,
     paddingHorizontal: 14,
+    height: 54,
+    marginBottom: 20,
+    shadowColor: '#1A1A2E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  inputIcon: { fontSize: 16, marginRight: 8 },
-  input: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 15,
-  },
-  resetBtn: {
-    borderRadius: BorderRadius.md,
-    paddingVertical: 15,
+  inputIcon: { marginRight: 10 },
+  input: { flex: 1, fontFamily: 'Poppins-Medium', fontSize: 15, color: '#1A1A2E' },
+
+  actionBtn: {
+    backgroundColor: '#6C3AE0',
+    borderRadius: 14,
+    height: 54,
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
-    ...Shadow.sm,
+    shadowColor: '#6C3AE0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  resetBtnText: { color: '#fff', fontFamily: 'Nunito-Bold', fontSize: 16 },
-  successWrap: { alignItems: 'center', paddingTop: 20 },
+  actionBtnText: { fontFamily: 'Poppins-Bold', fontSize: 16, color: '#FFFFFF' },
+
+  successWrap:  { flex: 1, alignItems: 'center', paddingTop: 20 },
   successEmoji: { fontSize: 64, marginBottom: 24, textAlign: 'center' },
-  successSub: { fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 32 },
-  boldEmail: { fontWeight: '700' },
-  resendBtn: { padding: 8, alignItems: 'center' },
-  resendText: { fontSize: 14, fontWeight: '600' },
+  successSub:   { fontFamily: 'Poppins-Regular', fontSize: 15, color: '#9890B8', lineHeight: 22, textAlign: 'center', marginBottom: 32 },
+  boldEmail:    { fontFamily: 'Poppins-Bold', color: '#1A1A2E' },
+
+  resendBtn:  { padding: 8 },
+  resendText: { fontFamily: 'Poppins-Medium', fontSize: 14, color: '#6C3AE0' },
 });

@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, TextInput, StyleSheet, TextInputProps } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { View, TextInput, StyleSheet, TextInputProps, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/useTheme';
 
 interface InputProps extends TextInputProps {
@@ -15,7 +15,7 @@ export const Input: React.FC<InputProps> = ({ leftIcon, rightIcon, onRightIconPr
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }, style]}>
       {leftIcon && (
-        <Icon name={leftIcon} size={20} color={colors.textSecondary} style={styles.leftIcon} />
+        <Ionicons name={leftIcon as any} size={20} color={colors.textSecondary} style={styles.leftIcon} />
       )}
       <TextInput
         style={[
@@ -28,13 +28,9 @@ export const Input: React.FC<InputProps> = ({ leftIcon, rightIcon, onRightIconPr
         {...props}
       />
       {rightIcon && (
-        <Icon
-          name={rightIcon}
-          size={20}
-          color={colors.textSecondary}
-          style={styles.rightIcon}
-          onPress={onRightIconPress}
-        />
+        <TouchableOpacity onPress={onRightIconPress} disabled={!onRightIconPress}>
+          <Ionicons name={rightIcon as any} size={20} color={colors.textSecondary} style={styles.rightIcon} />
+        </TouchableOpacity>
       )}
     </View>
   );

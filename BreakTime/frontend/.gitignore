@@ -5,5 +5,7 @@ ios/
 .gradle/
 build/
 *.keystore
+.expo/
+.expo
 google-services.json
 GoogleService-Info.plist

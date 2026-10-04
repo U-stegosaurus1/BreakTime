@@ -5,7 +5,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { useTheme } from '../../theme/useTheme';
 import { LinearGradient } from 'expo-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -54,11 +53,11 @@ export default function PlayScreen() {
                 ]}
               >
                 <LinearGradient 
-                  colors={opt.gradient} 
+                  colors={opt.gradient as [string, string, ...string[]]} 
                   style={[styles.iconWrap, !isSelected && { opacity: 0.6 }]}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 >
-                  <Icon name={opt.icon} size={32} color="#FFFFFF" />
+                  
                 </LinearGradient>
                 
                 <View style={styles.info}>
@@ -66,11 +65,11 @@ export default function PlayScreen() {
                   <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>{opt.desc}</Text>
                   <View style={styles.metaRow}>
                     <View style={styles.metaBadge}>
-                      <Icon name="clock-outline" size={14} color={colors.textSecondary} />
+                      
                       <Text style={[styles.metaText, { color: colors.textSecondary }]}>{opt.duration}</Text>
                     </View>
                     <View style={styles.metaBadge}>
-                      <Icon name="star-four-points" size={14} color={colors.accent} />
+                      
                       <Text style={[styles.metaText, { color: colors.accent, fontFamily: 'Poppins-Bold' }]}>{opt.points}</Text>
                     </View>
                   </View>
@@ -92,7 +91,7 @@ export default function PlayScreen() {
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
           >
             <Text style={styles.startBtnText}>Start Break Now</Text>
-            <Icon name="lightning-bolt" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
+            
           </LinearGradient>
         </TouchableOpacity>
 

@@ -8,7 +8,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BorderRadius, Shadow } from '../../theme';
 import { useTheme } from '../../theme/useTheme';
 import { activityApi } from '../../services/api';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -79,7 +78,7 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="chevron-left" size={28} color={colors.textPrimary} />
+          
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Activity History</Text>
         <View style={{ width: 40 }} />
@@ -92,7 +91,7 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Icon name="clipboard-text-outline" size={64} color={isDarkMode ? '#2D2A3E' : '#EAE6FF'} />
+            
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No activities logged yet</Text>
             <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
               Get moving and start logging your progress to earn points and badges!
@@ -123,7 +122,7 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
                     ]}
                   >
                     <View style={[styles.iconWrap, { backgroundColor: meta.bgColor }]}>
-                      <Icon name={meta.icon} size={22} color={meta.color} />
+                      
                     </View>
                     <View style={styles.logInfo}>
                       <Text style={[styles.logTitle, { color: colors.textPrimary }]}>{meta.title}</Text>

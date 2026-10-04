@@ -1,4 +1,6 @@
 // metro.config.js
-// Basic Metro configuration for React Native projects
-const { getDefaultConfig } = require('@react-native/metro-config');
-module.exports = getDefaultConfig(__dirname);
+const { getDefaultConfig } = require('expo/metro-config');
+
+const config = getDefaultConfig(__dirname);
+
+module.exports = config;

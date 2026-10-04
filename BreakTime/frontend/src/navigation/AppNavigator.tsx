@@ -29,7 +29,6 @@ import ActivityHistoryScreen from '../screens/Activity/ActivityHistoryScreen';
 import AboutScreen from '../screens/Profile/AboutScreen';
 import PlayScreen from '../screens/Activity/PlayScreen';
 import EditProfileScreen from '../screens/Profile/EditProfileScreen';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -56,19 +55,18 @@ export type TabParamList = {
   Home: undefined;
   Challenges: undefined;
   Play: undefined;
-  Stats: undefined;
+  Leaderboard: undefined;
   Profile: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
-// Matches mockup: flat icons with labels, active = purple, inactive = grey
+// Bottom tab navigator matching the design exactly:
+// Home | Challenges | Play (center) | Leaderboard | Profile
 function MainTabs() {
-  const { colors, isDarkMode } = useTheme();
-
-  const activeColor = '#635BFF';
-  const inactiveColor = '#A0A0B0';
+  const activeColor = '#6C3AE0';
+  const inactiveColor = '#9890B8';
 
   return (
     <Tab.Navigator
@@ -76,37 +74,44 @@ function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: activeColor,
         tabBarInactiveTintColor: inactiveColor,
+        tabBarShowLabel: true,
         tabBarLabelStyle: {
           fontFamily: 'Poppins-Medium',
-          fontSize: 11,
-          marginTop: -2,
-          marginBottom: Platform.OS === 'ios' ? 0 : 8,
+          fontSize: 10,
+          marginBottom: Platform.OS === 'ios' ? 0 : 6,
         },
-        tabBarStyle: [
-          styles.floatingTabBar,
-          {
-            backgroundColor: isDarkMode ? colors.card : '#FFFFFF',
-            shadowColor: '#1A1A2E',
-          }
-        ],
+        tabBarStyle: styles.tabBar,
         tabBarIcon: ({ focused, color }) => {
-          const icons: Record<string, [string, string]> = {
-            Home:       ['home', 'home-outline'],
-            Challenges: ['target', 'target'],
-            Play:       ['play-circle', 'play-circle-outline'],
-            Stats:      ['chart-bar', 'chart-bar'],
-            Profile:    ['account', 'account-outline'],
+          // Exact icons matching the design mockup
+          const iconMap: Record<string, string> = {
+            Home:        focused ? 'home'            : 'home-outline',
+            Challenges:  focused ? 'trophy'          : 'trophy-outline',
+            Play:        focused ? 'gamepad-variant' : 'gamepad-variant-outline',
+            Leaderboard: focused ? 'podium'          : 'podium',
+            Profile:     focused ? 'account-circle'  : 'account-circle-outline',
           };
-          const [filled, outlined] = icons[route.name] || ['circle', 'circle-outline'];
-          return <Icon name={focused ? filled : outlined} size={24} color={color} />;
+
+          // Play is the special center tab — bigger icon
+          if (route.name === 'Play') {
+            return (
+              <View style={[
+                styles.playTabIcon,
+                { backgroundColor: focused ? '#6C3AE0' : '#EAE6FF' }
+              ]}>
+                
+              </View>
+            );
+          }
+
+          return ;
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Challenges" component={ChallengesScreen} />
-      <Tab.Screen name="Play" component={PlayScreen} />
-      <Tab.Screen name="Stats" component={StatsScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Home"        component={HomeScreen}        options={{ title: 'Home' }} />
+      <Tab.Screen name="Challenges"  component={ChallengesScreen}  options={{ title: 'Challenges' }} />
+      <Tab.Screen name="Play"        component={PlayScreen}         options={{ title: 'Play', tabBarLabel: () => null }} />
+      <Tab.Screen name="Leaderboard" component={LeaderboardScreen}  options={{ title: 'Leaderboard' }} />
+      <Tab.Screen name="Profile"     component={ProfileScreen}      options={{ title: 'Profile' }} />
     </Tab.Navigator>
   );
 }
@@ -164,19 +169,32 @@ export default function AppNavigator() {
 }
 
 const styles = StyleSheet.create({
-  floatingTabBar: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 28 : 20,
-    left: 20,
-    right: 20,
-    height: 70,
-    borderRadius: 35,
-    borderTopWidth: 0,
+  // Flat tab bar exactly matching the design
+  tabBar: {
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F0EFF5',
+    height: Platform.OS === 'ios' ? 84 : 68,
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 8 : 4,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+    shadowColor: '#1A1A2E',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 8,
+  },
+  // Raised circle for the Play center tab
+  playTabIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    shadowColor: '#6C3AE0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });

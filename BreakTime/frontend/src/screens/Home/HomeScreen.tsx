@@ -1,154 +1,243 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, Image
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  SafeAreaView,
+  Dimensions,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useTheme } from '../../theme/useTheme';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuthStore } from '../../store/authStore';
+import { useActivityStore } from '../../store/activityStore';
+import {
+  WalkIcon,
+  StretchIcon,
+  StatsIcon,
+  WaterIcon,
+  FireIcon,
+  CoinIcon,
+} from '../../components/icons/ActivityIcons';
 
 const { width } = Dimensions.get('window');
 
+// ─── Quick Actions data ────────────────────────────────────────────────────────
+const QUICK_ACTIONS = [
+  { icon: WalkIcon,    label: 'Walk',    type: 'steps',   bgColor: '#E6F8F3' },
+  { icon: StretchIcon, label: 'Stretch', type: 'stretch', bgColor: '#F5F3FF' },
+  { icon: StatsIcon,   label: 'Stats',   route: 'Stats',  bgColor: '#EAE6FF' },
+  { icon: WaterIcon,   label: 'Water',   type: 'water',   bgColor: '#EBF4FF' },
+];
+
+// ─── Greeting helper ──────────────────────────────────────────────────────────
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good Morning';
+  if (h < 17) return 'Good Afternoon';
+  return 'Good Evening';
+}
+
+// ─── Animated circular progress (CSS border-trick) ───────────────────────────
+function CircularProgress({ pct }: { pct: number }) {
+  return (
+    <View style={ring.container}>
+      <View style={ring.track} />
+      <View style={[ring.fill, {
+        borderTopColor:    '#6C3AE0',
+        borderRightColor:  pct > 25 ? '#6C3AE0' : '#EAE6FF',
+        borderBottomColor: pct > 50 ? '#6C3AE0' : '#EAE6FF',
+        borderLeftColor:   pct > 75 ? '#6C3AE0' : '#EAE6FF',
+      }]} />
+      <View style={ring.inner}>
+        <Text style={ring.pctText}>{pct}%</Text>
+        <Text style={ring.pctLabel}>Daily Goal</Text>
+      </View>
+    </View>
+  );
+}
+
+const ring = StyleSheet.create({
+  container: { width: 100, height: 100, alignItems: 'center', justifyContent: 'center' },
+  track:     { position: 'absolute', width: 100, height: 100, borderRadius: 50, borderWidth: 10, borderColor: '#EAE6FF' },
+  fill:      { position: 'absolute', width: 100, height: 100, borderRadius: 50, borderWidth: 10, transform: [{ rotate: '-45deg' }] },
+  inner:     { alignItems: 'center' },
+  pctText:   { fontFamily: 'Poppins-Bold',    fontSize: 20, color: '#1A1A2E' },
+  pctLabel:  { fontFamily: 'Poppins-Regular', fontSize: 9,  color: '#9890B8', marginTop: -2 },
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function HomeScreen() {
-  const navigation = useNavigation();
-  const { colors, isDarkMode } = useTheme();
+  const navigation = useNavigation<any>();
+  const { user } = useAuthStore();
+  const { goals, todayStats, fetchDashboardData } = useActivityStore();
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  const firstName = user?.fullName?.split(' ')[0] || 'Alex';
+
+  const breaksGoal  = goals.find(g => g.type === 'breaks')?.targetValue         || 3;
+  const stepsGoal   = goals.find(g => g.type === 'steps')?.targetValue          || 3000;
+  const activeGoal  = goals.find(g => g.type === 'active_minutes')?.targetValue || 15;
+
+  const breaks  = todayStats.breaksTaken   || 0;
+  const steps   = todayStats.stepsWalked   || 1250;
+  const active  = todayStats.activeMinutes || 6;
+  const streak  = user?.currentStreak      || 7;
+  const points  = user?.totalPoints        || 850;
+
+  const progressPct = useMemo(() => {
+    const bp = Math.min(breaks / breaksGoal, 1);
+    const sp = Math.min(steps  / stepsGoal,  1);
+    const ap = Math.min(active / activeGoal,  1);
+    return Math.round(((bp + sp + ap) / 3) * 100) || 40;
+  }, [breaks, steps, active, breaksGoal, stepsGoal, activeGoal]);
+
+  const nextActivities = [
+    { title: 'Stretch Break', duration: '5 min', icon: 'yoga'         as const, type: 'stretch', iconColor: '#6C3AE0' },
+    { title: 'Active Walk',   duration: '3 min', icon: 'shoe-sneaker' as const, type: 'steps',   iconColor: '#00C897' },
+    { title: 'Water Break',   duration: '1 min', icon: 'water'        as const, type: 'water',   iconColor: '#3B82F6' },
+  ];
+  const nextUp = nextActivities[breaks % nextActivities.length];
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: isDarkMode ? colors.background : '#F7F7FA' }]}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={isDarkMode ? colors.background : '#F7F7FA'} />
-
-      {/* Top Brand Bar — matches mockup: logo left, avatar right */}
-      <View style={styles.brandBar}>
-        <View style={styles.logoWrap}>
-          <Image 
-            source={require('../../../assets/logo/breaktime-logo.png')}
-            style={{ width: 28, height: 28, resizeMode: 'contain' }}
-          />
-          <Text style={[styles.brandText, { color: isDarkMode ? '#FFFFFF' : '#1A1A2E' }]}>Break<Text style={{ color: '#00D084' }}>Time</Text></Text>
-        </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile' as never)} style={[styles.avatarBtn, { backgroundColor: isDarkMode ? '#2D2B3F' : '#EAE6FF' }]}>
-          <Icon name="account" size={24} color="#635BFF" />
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Greeting — matches mockup: single line */}
-        <View style={styles.header}>
-          <Text style={[styles.greeting, { color: colors.textPrimary }]}>Good Morning,{'\n'}Alex! 👋</Text>
-          <Text style={[styles.subGreeting, { color: colors.textSecondary }]}>Ready to make today amazing?</Text>
+
+        {/* ── GREETING ROW ── */}
+        <View style={styles.greetingRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>{getGreeting()}, {firstName}! 👋</Text>
+            <Text style={styles.subGreeting}>Ready to make today amazing?</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.profileBtn}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <Ionicons name="notifications" size={22} color="#FFFFFF" />
+            <View style={styles.notifDot} />
+          </TouchableOpacity>
         </View>
 
-        {/* Daily Goal Card — matches mockup exactly */}
-        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-          <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Daily Goal</Text>
-          <View style={styles.goalRow}>
-            
-            {/* Progress Ring */}
-            <View style={styles.ringContainer}>
-              <View style={[styles.ringTrack, { borderColor: isDarkMode ? colors.border : '#F3F4F6' }]}>
-                <View style={[styles.ringFill, { borderColor: '#635BFF' }]} />
-                <View style={styles.ringInner}>
-                  <Text style={[styles.ringPct, { color: colors.textPrimary }]}>40%</Text>
-                  <Text style={[styles.ringLabel, { color: colors.textSecondary }]}>Complete</Text>
-                </View>
-              </View>
-            </View>
+        {/* ── TODAY'S PROGRESS CARD ── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Today's Progress</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Stats')}>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
 
-            {/* Metrics Column — matches mockup right side */}
+          <View style={styles.progressRow}>
+            <CircularProgress pct={progressPct} />
+
             <View style={styles.metricsCol}>
+              {/* Breaks */}
               <View style={styles.metricRow}>
-                <View style={[styles.metricIconWrap, { backgroundColor: '#E6F8F3' }]}>
-                  <Icon name="run-fast" size={18} color="#00D084" />
+                <View style={[styles.metricIcon, { backgroundColor: '#E6F8F3' }]}>
+                  <MaterialCommunityIcons name="run-fast" size={14} color="#00C897" />
                 </View>
-                <View>
-                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Breaks</Text>
-                  <Text style={[styles.metricValue, { color: colors.textPrimary }]}>1/3</Text>
-                </View>
+                <Text style={styles.metricLabel}>Breaks</Text>
+                <Text style={styles.metricVal}>{breaks}/{breaksGoal}</Text>
               </View>
+
+              {/* Steps */}
               <View style={styles.metricRow}>
-                <View style={[styles.metricIconWrap, { backgroundColor: '#E6F8F3' }]}>
-                  <Icon name="shoe-sneaker" size={18} color="#00D084" />
+                <View style={[styles.metricIcon, { backgroundColor: '#FFF6E5' }]}>
+                  <MaterialCommunityIcons name="shoe-sneaker" size={14} color="#F59E0B" />
                 </View>
-                <View>
-                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Steps</Text>
-                  <Text style={[styles.metricValue, { color: colors.textPrimary }]}>1.2k/2k</Text>
-                </View>
+                <Text style={styles.metricLabel}>Steps</Text>
+                <Text style={styles.metricVal}>{steps.toLocaleString()}/{stepsGoal.toLocaleString()}</Text>
               </View>
+
+              {/* Active Time */}
               <View style={styles.metricRow}>
-                <View style={[styles.metricIconWrap, { backgroundColor: '#FFF3E8' }]}>
-                  <Icon name="clock-outline" size={18} color="#F59E0B" />
+                <View style={[styles.metricIcon, { backgroundColor: '#EAE6FF' }]}>
+                  <Ionicons name="time-outline" size={14} color="#6C3AE0" />
                 </View>
-                <View>
-                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Active</Text>
-                  <Text style={[styles.metricValue, { color: colors.textPrimary }]}>6/15m</Text>
-                </View>
+                <Text style={styles.metricLabel}>Active Time</Text>
+                <Text style={styles.metricVal}>{active}/{activeGoal} mins</Text>
               </View>
             </View>
-
           </View>
         </View>
 
-        {/* Stats Row — matches mockup: Current Streak + Total Points side-by-side */}
-        <View style={styles.statsRow}>
-          <View style={[styles.halfCard, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#FFF4E5' }]}>
-              <Icon name="fire" size={24} color="#F59E0B" />
+        {/* ── STREAK + POINTS ── */}
+        <View style={styles.twoCol}>
+          {/* Streak */}
+          <TouchableOpacity style={styles.halfCard} activeOpacity={0.85} onPress={() => navigation.navigate('Stats')}>
+            <Text style={styles.halfLabel}>Current Streak</Text>
+            <View style={styles.halfValueRow}>
+              <FireIcon size={26} />
+              <Text style={[styles.halfValue, { marginLeft: 8 }]}>{streak}</Text>
+              <Text style={styles.halfSub}> days</Text>
             </View>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Current Streak</Text>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>7 Days</Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={[styles.halfCard, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#F3E8FF' }]}>
-              <Icon name="star-four-points" size={24} color="#8B5CF6" />
+          {/* Points */}
+          <TouchableOpacity style={styles.halfCard} activeOpacity={0.85} onPress={() => navigation.navigate('Leaderboard')}>
+            <Text style={styles.halfLabel}>Points</Text>
+            <View style={styles.halfValueRow}>
+              <Text style={styles.halfValue}>{points}</Text>
+              <View style={{ marginLeft: 8 }}>
+                <CoinIcon size={26} />
+              </View>
             </View>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Points</Text>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>850</Text>
-          </View>
-        </View>
-
-        {/* Next Up Card — matches mockup: icon, "NEXT UP" label, title, description, play button */}
-        <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.text, flexDirection: 'row', alignItems: 'center', paddingVertical: 16 }]}>
-          <View style={[styles.nextUpIconBg, { backgroundColor: isDarkMode ? '#2D2B3F' : '#F5F5FA' }]}>
-            <Icon name="yoga" size={28} color="#C4B5FD" />
-          </View>
-          <View style={styles.nextUpInfo}>
-            <Text style={[styles.nextUpLabel, { color: '#635BFF' }]}>NEXT UP</Text>
-            <Text style={[styles.nextUpTitle, { color: colors.textPrimary }]}>Stretch Break</Text>
-            <Text style={[styles.nextUpDesc, { color: colors.textSecondary }]}>5 minutes · +15 pts</Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.playBtn}
-            onPress={() => navigation.navigate('ActivityBreak' as never, { type: 'stretch' } as never)}
-          >
-            <Icon name="play" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        {/* Quick Access — Leaderboard & Badges */}
-        <View style={styles.statsRow}>
-          <TouchableOpacity 
-            style={[styles.halfCard, { backgroundColor: colors.card, shadowColor: colors.text }]}
-            onPress={() => navigation.navigate('Leaderboard' as never)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.statIconBg, { backgroundColor: '#EBF4FF' }]}>
-              <Icon name="trophy" size={24} color="#3B82F6" />
+        {/* ── NEXT UP ── */}
+        <Text style={styles.sectionTitle}>Next Up</Text>
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={styles.nextIcon}>
+              <MaterialCommunityIcons name={nextUp.icon} size={26} color={nextUp.iconColor} />
             </View>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Leaderboard</Text>
-            <Text style={[styles.statValue, { color: colors.textPrimary, fontSize: 16 }]}>View Rankings</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.halfCard, { backgroundColor: colors.card, shadowColor: colors.text }]}
-            onPress={() => navigation.navigate('Badges' as never)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.statIconBg, { backgroundColor: '#FFF4E5' }]}>
-              <Icon name="medal" size={24} color="#F59E0B" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.nextTitle}>{nextUp.title}</Text>
+              <Text style={styles.nextSub}>{nextUp.duration}</Text>
             </View>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>My Badges</Text>
-            <Text style={[styles.statValue, { color: colors.textPrimary, fontSize: 16 }]}>3 Earned</Text>
-          </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.startBtn}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('ActivityBreak', { type: nextUp.type })}
+            >
+              <Text style={styles.startBtnText}>Start</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── QUICK ACTIONS ── */}
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.quickRow}>
+          {QUICK_ACTIONS.map(action => {
+            const IconComp = action.icon;
+            return (
+              <TouchableOpacity
+                key={action.label}
+                style={styles.quickItem}
+                activeOpacity={0.75}
+                onPress={() => {
+                  if (action.route) navigation.navigate(action.route);
+                  else navigation.navigate('ActivityBreak', { type: action.type });
+                }}
+              >
+                <View style={[styles.quickIconBox, { backgroundColor: action.bgColor }]}>
+                  <IconComp size={32} />
+                </View>
+                <Text style={styles.quickLabel}>{action.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
       </ScrollView>
@@ -156,194 +245,98 @@ export default function HomeScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  brandBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 8,
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  content:  { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 120 },
+
+  // Greeting
+  greetingRow:  { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
+  greeting:     { fontFamily: 'Poppins-Bold',    fontSize: 22, color: '#1A1A2E', lineHeight: 30, marginBottom: 2 },
+  subGreeting:  { fontFamily: 'Poppins-Regular', fontSize: 13, color: '#9890B8' },
+  profileBtn:   {
+    width: 46, height: 46, borderRadius: 23,
+    backgroundColor: '#6C3AE0',
+    alignItems: 'center', justifyContent: 'center',
+    marginLeft: 12, marginTop: 2,
   },
-  logoWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  notifDot: {
+    position: 'absolute', top: 2, right: 0,
+    width: 13, height: 13, borderRadius: 7,
+    backgroundColor: '#EF4444', borderWidth: 2, borderColor: '#FFFFFF',
   },
-  brandText: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 20,
-    letterSpacing: -0.5,
-  },
-  avatarBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20, // Circle avatar like mockup
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 120,
-    gap: 20,
-  },
-  header: {
-    marginBottom: 4,
-  },
-  greeting: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 26,
-    fontWeight: '800',
-    lineHeight: 34,
-    marginBottom: 4,
-  },
-  subGreeting: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-  },
+
+  // Card
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#F0EFF5',
+    marginBottom: 16,
+    shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  cardTitle: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 15,
-    marginBottom: 16,
-  },
-  goalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ringContainer: {
-    width: 120,
-    height: 120,
-    marginRight: 20,
-  },
-  ringTrack: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 60,
-    borderWidth: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ringFill: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 60,
-    borderWidth: 12,
-    borderLeftColor: 'transparent',
-    borderBottomColor: 'transparent',
-    transform: [{ rotate: '45deg' }],
-  },
-  ringInner: { alignItems: 'center' },
-  ringPct: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  ringLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 11,
-    marginTop: -2,
-  },
-  metricsCol: {
-    flex: 1,
-    gap: 14,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  metricIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 11,
-    marginBottom: -2,
-  },
-  metricValue: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 15,
-  },
+  cardHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  cardTitle:   { fontFamily: 'Poppins-Bold',   fontSize: 16, color: '#1A1A2E' },
+  viewAllText: { fontFamily: 'Poppins-Medium', fontSize: 13, color: '#6C3AE0' },
 
-  statsRow: {
-    flexDirection: 'row',
-    gap: 16,
-  },
+  // Progress
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  metricsCol:  { flex: 1, gap: 12 },
+  metricRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  metricIcon:  { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  metricLabel: { flex: 1, fontFamily: 'Poppins-Bold',   fontSize: 13, color: '#1A1A2E' },
+  metricVal:   {          fontFamily: 'Poppins-Medium', fontSize: 12, color: '#9890B8' },
+
+  // Streak / Points
+  twoCol:       { flexDirection: 'row', gap: 12, marginBottom: 16 },
   halfCard: {
     flex: 1,
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 16,
+    borderWidth: 1,
+    borderColor: '#F0EFF5',
+    shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  statIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  statLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  statValue: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 20,
-    fontWeight: '800',
-  },
+  halfLabel:    { fontFamily: 'Poppins-Bold',   fontSize: 13, color: '#1A1A2E', marginBottom: 8 },
+  halfValueRow: { flexDirection: 'row', alignItems: 'center' },
+  halfValue:    { fontFamily: 'Poppins-Bold',   fontSize: 26, color: '#1A1A2E' },
+  halfSub:      { fontFamily: 'Poppins-Medium', fontSize: 13, color: '#9890B8', alignSelf: 'flex-end', marginBottom: 3 },
 
-  nextUpIconBg: {
-    width: 52,
-    height: 52,
+  // Section title
+  sectionTitle: { fontFamily: 'Poppins-Bold', fontSize: 16, color: '#1A1A2E', marginBottom: 12 },
+
+  // Next Up
+  nextIcon: {
+    width: 52, height: 52, borderRadius: 16,
+    backgroundColor: '#F5F3FF',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 14,
+  },
+  nextTitle:    { fontFamily: 'Poppins-Bold',    fontSize: 15, color: '#1A1A2E', marginBottom: 2 },
+  nextSub:      { fontFamily: 'Poppins-Regular', fontSize: 13, color: '#9890B8' },
+  startBtn:     { backgroundColor: '#6C3AE0', paddingHorizontal: 22, paddingVertical: 10, borderRadius: 12 },
+  startBtnText: { fontFamily: 'Poppins-Bold',    fontSize: 14, color: '#FFFFFF' },
+
+  // Quick Actions
+  quickRow:     { flexDirection: 'row', justifyContent: 'space-between' },
+  quickItem:    { alignItems: 'center', width: (width - 60) / 4 },
+  quickIconBox: {
+    width: 58,
+    height: 58,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginBottom: 8,
   },
-  nextUpInfo: { flex: 1 },
-  nextUpLabel: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 10,
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  nextUpTitle: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 16,
-    marginBottom: 2,
-  },
-  nextUpDesc: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
-  },
-  // Mockup: solid purple circle play button
-  playBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#635BFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  quickLabel:   { fontFamily: 'Poppins-Medium', fontSize: 12, color: '#1A1A2E' },
 });

@@ -2,7 +2,10 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from '../config/firebase';
 
-const BASE_URL = process.env.API_URL || 'http://localhost:3000/api';
+// NOTE: On physical devices, localhost won't work.
+// Set EXPO_PUBLIC_API_URL in your .env file to your machine's local IP:
+// e.g. EXPO_PUBLIC_API_URL=http://192.168.1.100:3000/api
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -39,6 +42,8 @@ export const authApi = {
     api.post('/auth/register', data),
   // Optionally, if the backend needs to know when a login happens
   login: () => api.post('/auth/login'),
+  // Forgot password
+  forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
 };
 
 // Users

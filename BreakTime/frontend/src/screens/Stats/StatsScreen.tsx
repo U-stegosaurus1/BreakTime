@@ -1,130 +1,189 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { activityApi } from '../../services/api';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../../theme/useTheme';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
+  StatusBar,
+  TouchableOpacity,
+  Dimensions,
+} from 'react-native';
+import {
+  StepsIcon,
+  TimerIcon,
+  BreaksIcon,
+  CaloriesIcon,
+} from '../../components/icons/ActivityIcons';
 
 const { width } = Dimensions.get('window');
 
-type PeriodType = 'day' | 'week' | 'month';
+type TabType = 'day' | 'week' | 'month';
+
+// ── Bar chart data per tab ─────────────────────────────────────────────────────
+const CHART_DATA: Record<TabType, { label: string; value: number }[]> = {
+  day: [
+    { label: '6am', value: 0.2 }, { label: '9am', value: 0.5 },
+    { label: '12pm', value: 0.9 }, { label: '3pm', value: 0.6 },
+    { label: '6pm', value: 0.3 }, { label: '9pm', value: 0.1 },
+  ],
+  week: [
+    { label: 'M', value: 0.4 }, { label: 'T', value: 0.5 },
+    { label: 'W', value: 1.0 }, { label: 'T', value: 0.35 },
+    { label: 'F', value: 0.6 }, { label: 'S', value: 0.3 },
+    { label: 'S', value: 0.25 },
+  ],
+  month: [
+    { label: 'W1', value: 0.6 }, { label: 'W2', value: 0.8 },
+    { label: 'W3', value: 0.5 }, { label: 'W4', value: 0.9 },
+  ],
+};
+
+const OVERVIEW: Record<TabType, {
+  steps: string; stepsTarget: string;
+  activeTime: string; activeTarget: string;
+  breaks: string; breaksTarget: string;
+  calories: string;
+  dateRange: string;
+}> = {
+  day:   { steps: '1,250', stepsTarget: '/2,000', activeTime: '6', activeTarget: '/15 mins', breaks: '1', breaksTarget: '/3', calories: '120', dateRange: 'Today, May 30' },
+  week:  { steps: '1,250', stepsTarget: '/2,000', activeTime: '6', activeTarget: '/15 mins', breaks: '1', breaksTarget: '/3', calories: '120', dateRange: 'May 24 – May 30, 2025' },
+  month: { steps: '22,400', stepsTarget: '/60,000', activeTime: '42', activeTarget: '/300 mins', breaks: '18', breaksTarget: '/90', calories: '980', dateRange: 'May 2025' },
+};
+
+const BAR_HEIGHT = 140;
 
 export default function StatsScreen() {
-  const [period, setPeriod] = useState<PeriodType>('week');
-  const navigation = useNavigation();
-  const { colors, isDarkMode } = useTheme();
+  const [tab, setTab] = useState<TabType>('week');
+  const overview = OVERVIEW[tab];
+  const bars     = CHART_DATA[tab];
 
-  const { data: stats } = useQuery({
-    queryKey: ['stats', period],
-    queryFn: () => activityApi.getStats(period).then(r => r.data.data),
-  });
-
-  const tabs: { key: PeriodType; label: string }[] = [
-    { key: 'day', label: 'Day' },
-    { key: 'week', label: 'Week' },
+  const TABS: { key: TabType; label: string }[] = [
+    { key: 'day',   label: 'Day'   },
+    { key: 'week',  label: 'Week'  },
     { key: 'month', label: 'Month' },
   ];
 
-  const weekData = [20, 50, 30, 70, 40, 10, 60];
-  const weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const maxVal = Math.max(...weekData);
-
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={colors.background} />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-          <Icon name="chevron-left" size={28} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Stats & Progress</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-      {/* Pill Switcher */}
-      <View style={[styles.switcherWrap, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-        {tabs.map((tab) => {
-          const isActive = period === tab.key;
-          return (
-            <TouchableOpacity 
-              key={tab.key}
-              style={[styles.pill, isActive && styles.pillActive]}
-              onPress={() => setPeriod(tab.key)}
-            >
-              <Text style={[styles.pillText, isActive && styles.pillTextActive, !isActive && { color: colors.textSecondary }]}>{tab.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Overview <Text style={[styles.sectionTitleMuted, { color: colors.textSecondary }]}>May 24 - May 30</Text></Text>
-        
-        {/* 2x2 Grid */}
-        <View style={styles.grid}>
-          {/* Steps */}
-          <View style={[styles.gridBox, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-            <View style={styles.gridHeader}>
-              <View style={[styles.iconWrap, { backgroundColor: isDarkMode ? '#2D2B3F' : '#EBF4FF' }]}>
-                <Icon name="shoe-sneaker" size={16} color="#3B82F6" />
-              </View>
-              <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>Steps</Text>
-            </View>
-            <Text style={[styles.gridValue, { color: colors.textPrimary }]}>1,250<Text style={[styles.gridUnit, { color: colors.textSecondary }]}>/2,000</Text></Text>
-          </View>
-          
-          {/* Active Time */}
-          <View style={[styles.gridBox, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-            <View style={styles.gridHeader}>
-              <View style={[styles.iconWrap, { backgroundColor: isDarkMode ? '#2D2B3F' : '#FFF3E8' }]}>
-                <Icon name="clock-outline" size={16} color="#F59E0B" />
-              </View>
-              <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>Active Time</Text>
-            </View>
-            <Text style={[styles.gridValue, { color: colors.textPrimary }]}>6 <Text style={[styles.gridUnit, { color: colors.textSecondary }]}>/15 min</Text></Text>
-          </View>
-          
-          {/* Breaks */}
-          <View style={[styles.gridBox, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-            <View style={styles.gridHeader}>
-              <View style={[styles.iconWrap, { backgroundColor: isDarkMode ? '#2D2B3F' : '#E6F8F3' }]}>
-                <Icon name="run-fast" size={16} color="#00D084" />
-              </View>
-              <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>Breaks</Text>
-            </View>
-            <Text style={[styles.gridValue, { color: colors.textPrimary }]}>1<Text style={[styles.gridUnit, { color: colors.textSecondary }]}>/3</Text></Text>
-          </View>
-
-          {/* Calories */}
-          <View style={[styles.gridBox, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-            <View style={styles.gridHeader}>
-              <View style={[styles.iconWrap, { backgroundColor: isDarkMode ? '#2D2B3F' : '#F3E8FF' }]}>
-                <Icon name="fire" size={16} color="#F59E0B" />
-              </View>
-              <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>Calories</Text>
-            </View>
-            <Text style={[styles.gridValue, { color: colors.textPrimary }]}>120 <Text style={[styles.gridUnit, { color: colors.textSecondary }]}>kcal</Text></Text>
-          </View>
-        </View>
-
-        {/* Activity Chart */}
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Activity</Text>
-        <View style={[styles.chartArea, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-          {weekDays.map((day, i) => {
-            const val = weekData[i];
-            const heightPct = Math.max((val / maxVal) * 100, 10);
+        {/* ── TAB BAR ── */}
+        <View style={styles.tabRow}>
+          {TABS.map(t => {
+            const active = tab === t.key;
             return (
-              <View key={i} style={styles.barCol}>
-                <View style={[styles.barTrack, { backgroundColor: isDarkMode ? colors.border : '#F5F5F9' }]}>
-                  <View style={[styles.barFill, { height: `${heightPct}%` as any }]} />
-                </View>
-                <Text style={[styles.barLabel, { color: colors.textPrimary }]}>{day}</Text>
-              </View>
+              <TouchableOpacity
+                key={t.key}
+                style={[styles.tabPill, active && styles.tabPillActive]}
+                activeOpacity={0.8}
+                onPress={() => setTab(t.key)}
+              >
+                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
             );
           })}
+        </View>
+
+        {/* ── OVERVIEW HEADER ── */}
+        <View style={styles.overviewHeader}>
+          <Text style={styles.overviewTitle}>Overview</Text>
+          <Text style={styles.dateRange}>{overview.dateRange}</Text>
+        </View>
+
+        {/* ── 2×2 STATS GRID ── */}
+        <View style={styles.grid}>
+          {/* Steps */}
+          <TouchableOpacity style={styles.gridCard} activeOpacity={0.8}>
+            <View style={styles.cardIconRow}>
+              <View style={[styles.cardIconBg, { backgroundColor: '#EAE6FF' }]}>
+                <StepsIcon size={20} />
+              </View>
+              <Text style={styles.cardLabel}>Steps</Text>
+            </View>
+            <View style={styles.cardValueRow}>
+              <Text style={styles.cardValue}>{overview.steps}</Text>
+              <Text style={styles.cardTarget}>{overview.stepsTarget}</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Active Time */}
+          <TouchableOpacity style={styles.gridCard} activeOpacity={0.8}>
+            <View style={styles.cardIconRow}>
+              <View style={[styles.cardIconBg, { backgroundColor: '#F5F3FF' }]}>
+                <TimerIcon size={20} />
+              </View>
+              <Text style={styles.cardLabel}>Active Time</Text>
+            </View>
+            <View style={styles.cardValueRow}>
+              <Text style={styles.cardValue}>{overview.activeTime}</Text>
+              <Text style={styles.cardTarget}>{overview.activeTarget}</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Breaks */}
+          <TouchableOpacity style={styles.gridCard} activeOpacity={0.8}>
+            <View style={styles.cardIconRow}>
+              <View style={[styles.cardIconBg, { backgroundColor: '#E6F8F3' }]}>
+                <BreaksIcon size={20} />
+              </View>
+              <Text style={styles.cardLabel}>Breaks</Text>
+            </View>
+            <View style={styles.cardValueRow}>
+              <Text style={styles.cardValue}>{overview.breaks}</Text>
+              <Text style={styles.cardTarget}>{overview.breaksTarget}</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Calories */}
+          <TouchableOpacity style={styles.gridCard} activeOpacity={0.8}>
+            <View style={styles.cardIconRow}>
+              <View style={[styles.cardIconBg, { backgroundColor: '#FFF6E5' }]}>
+                <CaloriesIcon size={20} />
+              </View>
+              <Text style={styles.cardLabel}>Calories</Text>
+            </View>
+            <View style={styles.cardValueRow}>
+              <Text style={styles.cardValue}>{overview.calories}</Text>
+              <Text style={styles.cardTarget}> kcal</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── BAR CHART ── */}
+        <Text style={styles.activityTitle}>Activity</Text>
+        <View style={styles.chartWrap}>
+          {/* Y-axis labels */}
+          <View style={styles.yAxis}>
+            {['100%', '75%', '25%', '0%'].map(l => (
+              <Text key={l} style={styles.yLabel}>{l}</Text>
+            ))}
+          </View>
+
+          {/* Bars */}
+          <View style={styles.barsArea}>
+            {/* Horizontal guide lines */}
+            <View style={[styles.guideLine, { bottom: BAR_HEIGHT * 1.0 }]} />
+            <View style={[styles.guideLine, { bottom: BAR_HEIGHT * 0.75 }]} />
+            <View style={[styles.guideLine, { bottom: BAR_HEIGHT * 0.25 }]} />
+            <View style={[styles.guideLine, { bottom: 0 }]} />
+
+            {/* Bar columns */}
+            <View style={styles.barColumns}>
+              {bars.map((bar, idx) => (
+                <View key={idx} style={styles.barCol}>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { height: `${bar.value * 100}%` }]} />
+                  </View>
+                  <Text style={styles.barLabel}>{bar.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
         </View>
 
       </ScrollView>
@@ -133,147 +192,101 @@ export default function StatsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F7F7FA' },
-  header: {
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  content:  { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 },
+
+  // Tabs
+  tabRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 24,
-  },
-  iconBtn: { padding: 4 },
-  headerTitle: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 18,
-    color: '#1A1A2E',
-  },
-  switcherWrap: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    marginHorizontal: 24,
-    marginBottom: 24,
+    backgroundColor: '#F5F3FF',
+    borderRadius: 12,
     padding: 4,
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: 24,
   },
-  pill: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 20,
+  tabPill: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  tabPillActive: {
+    backgroundColor: '#6C3AE0',
+    shadowColor: '#6C3AE0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  pillActive: {
-    backgroundColor: '#635BFF',
-  },
-  pillText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
-    color: '#9890B8',
-  },
-  pillTextActive: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-Bold',
-  },
-  scroll: { flex: 1 },
-  content: {
-    paddingHorizontal: 24,
-    paddingBottom: 100,
-  },
-  sectionTitle: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 16,
-    color: '#1A1A2E',
-    marginBottom: 16,
-  },
-  sectionTitleMuted: {
-    color: '#9890B8',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
-  },
+  tabLabel:       { fontFamily: 'Poppins-Medium', fontSize: 14, color: '#9890B8' },
+  tabLabelActive: { fontFamily: 'Poppins-Bold',   fontSize: 14, color: '#FFFFFF' },
+
+  // Overview header
+  overviewHeader: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 16 },
+  overviewTitle:  { fontFamily: 'Poppins-Bold',   fontSize: 18, color: '#1A1A2E' },
+  dateRange:      { fontFamily: 'Poppins-Regular', fontSize: 12, color: '#9890B8' },
+
+  // 2×2 grid
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 12,
     marginBottom: 32,
   },
-  gridBox: {
-    width: (width - 48 - 16) / 2,
+  gridCard: {
+    width: (width - 52) / 2,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 16,
+    borderWidth: 1,
+    borderColor: '#F0EFF5',
     shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
-  gridHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
+  cardIconRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  cardIconBg:   { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  cardLabel:    { fontFamily: 'Poppins-Medium', fontSize: 13, color: '#9890B8' },
+  cardValueRow: { flexDirection: 'row', alignItems: 'baseline' },
+  cardValue:    { fontFamily: 'Poppins-Bold',   fontSize: 26, color: '#1A1A2E' },
+  cardTarget:   { fontFamily: 'Poppins-Regular', fontSize: 13, color: '#9890B8' },
+
+  // Activity bar chart
+  activityTitle: { fontFamily: 'Poppins-Bold', fontSize: 18, color: '#1A1A2E', marginBottom: 16 },
+  chartWrap:     { flexDirection: 'row', height: BAR_HEIGHT + 28 },
+
+  yAxis: {
+    width: 36,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingRight: 8,
+    paddingBottom: 24,
   },
-  iconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  gridLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
-    color: '#9890B8',
-  },
-  gridValue: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 20,
-    color: '#1A1A2E',
-  },
-  gridUnit: {
-    fontSize: 12,
-    color: '#9890B8',
-  },
-  chartArea: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'flex-end', 
-    height: 150,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  barCol: { 
-    alignItems: 'center', 
+  yLabel: { fontFamily: 'Poppins-Regular', fontSize: 10, color: '#9890B8' },
+
+  barsArea: {
     flex: 1,
+    position: 'relative',
+    paddingBottom: 24,
   },
-  barTrack: { 
-    width: 16, 
-    height: 100, 
-    borderRadius: 8, 
-    backgroundColor: '#F5F5F9',
-    justifyContent: 'flex-end', 
-    overflow: 'hidden' 
+  guideLine: {
+    position: 'absolute',
+    left: 0, right: 0,
+    height: 1,
+    backgroundColor: '#F0EFF5',
   },
-  barFill: { 
-    width: '100%', 
+  barColumns: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: BAR_HEIGHT,
+    justifyContent: 'space-between',
+  },
+  barCol:   { alignItems: 'center', flex: 1 },
+  barTrack: {
+    width: 10,
+    height: BAR_HEIGHT,
+    backgroundColor: '#EAE6FF',
     borderRadius: 6,
-    backgroundColor: '#635BFF',
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+    marginBottom: 8,
   },
-  barLabel: { 
-    fontFamily: 'Poppins-Medium', 
-    fontSize: 12, 
-    color: '#1A1A2E',
-    marginTop: 12 
-  },
+  barFill:  { width: '100%', backgroundColor: '#6C3AE0', borderRadius: 6 },
+  barLabel: { fontFamily: 'Poppins-Regular', fontSize: 10, color: '#9890B8' },
 });

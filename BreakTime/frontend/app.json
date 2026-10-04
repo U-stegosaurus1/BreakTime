@@ -1,6 +1,5 @@
 {
   "expo": {
-    "sdkVersion": "54.0.0",
     "name": "BreakTime",
     "slug": "breaktime",
     "version": "1.0.0",
@@ -10,28 +9,22 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#F7F7FA"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.breaktime.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "googleServicesFile": "./google-services.json",
       "package": "com.breaktime.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "updates": {
-      "fallbackToCacheTimeout": 0
-    },
-    "runtimeVersion": {
-      "policy": "nativeVersion"
     }
   }
 }

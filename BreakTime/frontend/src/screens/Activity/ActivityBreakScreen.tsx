@@ -1,208 +1,258 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+  Dimensions,
+  Animated,
+  Easing,
+} from 'react-native';
+import ActiveBreakIllustration from '../../components/illustrations/ActiveBreakIllustration';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { activityApi } from '../../services/api';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
+// ── Activity configs ───────────────────────────────────────────────────────────
+const CONFIGS: Record<string, {
+  title: string;
+  color: string;
+  bgColor: string;
+  duration: number;
+  points: number;
+}> = {
+  stretch: {
+    title: 'Stretch Break',
+    color: '#6C3AE0',
+    bgColor: '#F0EDFF',
+    duration: 5 * 60,
+    points: 25,
+  },
+  steps: {
+    title: 'Active Walk',
+    color: '#00C897',
+    bgColor: '#E6F8F3',
+    duration: 2 * 60,
+    points: 20,
+  },
+  water: {
+    title: 'Hydration Break',
+    color: '#3B82F6',
+    bgColor: '#EBF4FF',
+    duration: 60,
+    points: 10,
+  },
+  breaks: {
+    title: 'Stair Climbing',
+    color: '#F59E0B',
+    bgColor: '#FFF6E5',
+    duration: 3 * 60,
+    points: 20,
+  },
+};
+
+// ── Circular progress ring ─────────────────────────────────────────────────────
+function ProgressRing({ done, total }: { done: number; total: number }) {
+  const pct = Math.round((done / total) * 100);
+  return (
+    <View style={ring.wrap}>
+      <View style={ring.track} />
+      <View style={[ring.fill, {
+        borderTopColor:    '#6C3AE0',
+        borderRightColor:  pct > 25  ? '#6C3AE0' : '#EAE6FF',
+        borderBottomColor: pct > 50  ? '#6C3AE0' : '#EAE6FF',
+        borderLeftColor:   pct > 75  ? '#6C3AE0' : '#EAE6FF',
+      }]} />
+      <View style={ring.inner}>
+        <Text style={ring.label}>{done}/{total}</Text>
+      </View>
+    </View>
+  );
+}
+
+const ring = StyleSheet.create({
+  wrap:  { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
+  track: { position: 'absolute', width: 52, height: 52, borderRadius: 26, borderWidth: 4, borderColor: '#EAE6FF' },
+  fill:  { position: 'absolute', width: 52, height: 52, borderRadius: 26, borderWidth: 4, transform: [{ rotate: '-45deg' }] },
+  inner: { alignItems: 'center', justifyContent: 'center' },
+  label: { fontFamily: 'Poppins-Bold', fontSize: 12, color: '#6C3AE0' },
+});
+
+// ── Main screen ────────────────────────────────────────────────────────────────
 export default function ActivityBreakScreen() {
-  const route = useRoute();
-  const navigation = useNavigation();
-  const { type } = route.params as { type: string };
-  const queryClient = useQueryClient();
+  const route      = useRoute();
+  const navigation = useNavigation<any>();
+  const { type }   = (route.params as any) ?? { type: 'stretch' };
+  const config     = CONFIGS[type] ?? CONFIGS.stretch;
 
-  const getDuration = () => {
-    switch (type) {
-      case 'stretch': return 5 * 60;
-      case 'walk': return 2 * 60;
-      case 'stairs': return 3 * 60;
-      case 'water': return 1 * 60;
-      default: return 5 * 60;
-    }
-  };
-
-  const [timeLeft, setTimeLeft] = useState(getDuration());
-  const [isActive, setIsActive] = useState(true);
+  const totalSteps   = Math.ceil(config.duration / 60);
+  const [timeLeft,   setTimeLeft]   = useState(config.duration);
+  const [isActive,   setIsActive]   = useState(true);
   const [isFinished, setIsFinished] = useState(false);
 
-  const { mutate: logActivity, isPending: isLoading } = useMutation({
-    mutationFn: (data: any) => activityApi.log(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-      navigation.goBack();
-    },
-  });
-
+  // Bounce animation for the illustration
+  const bounceAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    let interval: any = null;
+    if (!isFinished) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(bounceAnim, { toValue: -12, duration: 700, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(bounceAnim, { toValue: 0,   duration: 700, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      bounceAnim.setValue(0);
+    }
+  }, [isFinished]);
+
+  // Countdown timer
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(t => t - 1);
-      }, 1000);
+      interval = setInterval(() => setTimeLeft(t => t - 1), 1000);
     } else if (timeLeft === 0 && !isFinished) {
       setIsActive(false);
       setIsFinished(true);
     }
-    return () => clearInterval(interval);
+    return () => { if (interval) clearInterval(interval); };
   }, [isActive, timeLeft, isFinished]);
 
-  const handleFinish = () => {
-    logActivity({
-      activityType: type.toUpperCase(),
-      durationMinutes: Math.ceil(getDuration() / 60),
-      notes: 'Completed session',
-    });
-  };
+  const completedSteps = totalSteps - Math.ceil(timeLeft / 60);
+  const displayDone    = isFinished ? totalSteps : completedSteps;
 
-  const mins = Math.floor(timeLeft / 60);
-  const totalMins = getDuration() / 60;
+  const mm = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+  const ss = String(timeLeft % 60).padStart(2, '0');
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Header */}
+      {/* ── HEADER: back arrow | title | progress ring ── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-          <Icon name="chevron-left" size={28} color="#1A1A2E" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={22} color="#1A1A2E" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn}>
-          <Icon name="dots-horizontal" size={28} color="#1A1A2E" />
-        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>{config.title}</Text>
+
+        {/* Circular step counter — "5/5" in purple ring */}
+        <ProgressRing done={displayDone} total={totalSteps} />
       </View>
 
-      <View style={styles.content}>
-        
-        {/* Title & Progress Circle */}
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Stretch Break</Text>
-          <View style={styles.progressCircle}>
-            <Text style={styles.progressText}>{totalMins - mins}/{totalMins}</Text>
-          </View>
-        </View>
+      {/* ── ILLUSTRATION AREA ── */}
+      <View style={styles.illustrationArea}>
+        <Animated.View style={[styles.characterCircle, { backgroundColor: config.bgColor, transform: [{ translateY: bounceAnim }] }]}>
+          <ActiveBreakIllustration width={220} height={220} />
+        </Animated.View>
+      </View>
 
-        {/* Hero Illustration */}
-        <View style={styles.illustrationWrap}>
-          <View style={styles.mockIllustration}>
-            <Icon name="yoga" size={160} color="#635BFF" />
-          </View>
-        </View>
-
-        {/* Completion Message or Timer */}
+      {/* ── BOTTOM SECTION ── */}
+      <View style={styles.bottomSection}>
         {isFinished ? (
-          <View style={styles.messageWrap}>
-            <Text style={styles.messageTitle}>Great Job!</Text>
-            <Text style={styles.messageSub}>You completed this break.</Text>
-            <Text style={styles.pointsText}>+ 25 Points</Text>
+          /* ── Completed: "Great Job!" ── */
+          <View style={styles.completedBox}>
+            <Text style={styles.completedTitle}>Great Job!</Text>
+            <Text style={styles.completedSub}>You completed this break.</Text>
+            <Text style={styles.pointsText}>+ {config.points} Points</Text>
           </View>
         ) : (
-          <View style={styles.messageWrap}>
-            <Text style={styles.messageTitle}>Keep Going!</Text>
-            <Text style={styles.messageSub}>{mins} minutes remaining.</Text>
+          /* ── In-progress: timer ── */
+          <View style={styles.timerBox}>
+            <Text style={styles.timerText}>{mm}:{ss}</Text>
+            <Text style={styles.timerLabel}>remaining</Text>
           </View>
         )}
 
-        {/* Footer Button */}
-        <TouchableOpacity 
-          style={styles.finishBtn} 
-          onPress={isFinished ? handleFinish : () => setIsFinished(true)}
-          disabled={isLoading}
+        {/* Finish / Skip button */}
+        <TouchableOpacity
+          style={styles.finishBtn}
+          activeOpacity={0.85}
+          onPress={() => {
+            if (isFinished) {
+              navigation.goBack();
+            } else {
+              setIsActive(false);
+              setIsFinished(true);
+              setTimeLeft(0);
+            }
+          }}
         >
-          <Text style={styles.finishBtnText}>{isLoading ? 'Saving...' : 'Finish'}</Text>
+          <Text style={styles.finishBtnText}>{isFinished ? 'Finish' : 'Skip'}</Text>
         </TouchableOpacity>
-
       </View>
     </SafeAreaView>
   );
 }
 
+// ── Styles ─────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    paddingHorizontal: 20, 
-    paddingTop: 16 
-  },
-  iconBtn: { padding: 4 },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    justifyContent: 'space-between',
-  },
-  titleRow: {
+
+  // Header row
+  header: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  title: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 24,
-    color: '#1A1A2E',
+  backBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: '#F5F3FF',
+    alignItems: 'center', justifyContent: 'center',
   },
-  progressCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: '#635BFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
+  headerTitle: {
+    fontFamily: 'Poppins-Bold', fontSize: 18, color: '#1A1A2E',
+    flex: 1, textAlign: 'center', marginHorizontal: 8,
   },
-  progressText: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 13,
-    color: '#635BFF',
-  },
-  illustrationWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
+
+  // Illustration
+  illustrationArea: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 16,
   },
-  mockIllustration: {
+  characterCircle: {
     width: width * 0.7,
     height: width * 0.8,
-    backgroundColor: '#F5F5F9',
-    borderRadius: 24,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  messageWrap: {
-    alignItems: 'center',
-    marginBottom: 32,
+
+  // Bottom
+  bottomSection: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
-  messageTitle: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 24,
-    color: '#1A1A2E',
-    marginBottom: 8,
-  },
-  messageSub: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: '#9890B8',
-    marginBottom: 12,
-  },
-  pointsText: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 16,
-    color: '#F59E0B',
-  },
+
+  // Completed
+  completedBox:   { alignItems: 'center', marginBottom: 28 },
+  completedTitle: { fontFamily: 'Poppins-Bold',    fontSize: 28, color: '#1A1A2E', marginBottom: 6 },
+  completedSub:   { fontFamily: 'Poppins-Regular', fontSize: 15, color: '#9890B8', marginBottom: 10 },
+  pointsText:     { fontFamily: 'Poppins-Bold',    fontSize: 18, color: '#F59E0B' },
+
+  // Timer
+  timerBox:   { alignItems: 'center', marginBottom: 28 },
+  timerText:  { fontFamily: 'Poppins-Bold',    fontSize: 48, color: '#1A1A2E', lineHeight: 56 },
+  timerLabel: { fontFamily: 'Poppins-Regular', fontSize: 14, color: '#9890B8' },
+
+  // Finish / Skip button — full width purple
   finishBtn: {
-    backgroundColor: '#635BFF',
-    paddingVertical: 18,
+    backgroundColor: '#6C3AE0',
     borderRadius: 16,
+    paddingVertical: 18,
     alignItems: 'center',
+    shadowColor: '#6C3AE0',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  finishBtnText: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
+  finishBtnText: { fontFamily: 'Poppins-Bold', fontSize: 17, color: '#FFFFFF' },
 });

@@ -1,302 +1,208 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, Switch, ActivityIndicator } from 'react-native';
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
+  StatusBar,
+  TouchableOpacity,
+  Image,
+  Alert,
+  Platform,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { settingsApi } from '../../services/api';
-import { useTheme } from '../../theme/useTheme';
+import { AvatarIcon } from '../../components/icons/ActivityIcons';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
-const { width } = Dimensions.get('window');
+// ── Menu items matching design 10 ─────────────────────────────────────────────
+const MENU_ITEMS: {
+  id: string;
+  title: string;
+  route?: string;
+  value?: string;
+  isDestructive?: boolean;
+}[] = [
+  { id: '1', title: 'Edit Profile',     route: 'EditProfile'    },
+  { id: '2', title: 'Activity History', route: 'ActivityHistory' },
+  { id: '3', title: 'Goals',            route: 'Goals'           },
+  { id: '4', title: 'Reminders',        route: 'Settings', value: 'On' },
+  { id: '5', title: 'Connected Apps',   route: 'Settings'        },
+  { id: '6', title: 'Settings',         route: 'Settings'        },
+  { id: '7', title: 'Logout',           isDestructive: true      },
+];
 
 export default function ProfileScreen() {
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation<any>();
   const { user, logout } = useAuthStore();
-  const queryClient = useQueryClient();
-  const { colors, isDarkMode } = useTheme();
 
-  const [expandedTabs, setExpandedTabs] = useState<Record<string, boolean>>({});
-  const [appleHealthEnabled, setAppleHealthEnabled] = useState(true);
-  const [googleFitEnabled, setGoogleFitEnabled] = useState(false);
+  const name   = user?.fullName?.split(' ')[0] || 'Alex';
+  const level  = user?.level  ?? 6;
+  const xp     = user?.xp    ?? 1230;
+  const xpGoal = 2000;
+  const xpPct  = Math.min(xp / xpGoal, 1);
 
-  const defaultSettings = {
-    notificationsEnabled: true,
-    dailyChallengeReminder: true,
-    soundEnabled: true,
-    vibrationEnabled: true,
-    breakReminders: true,
-  };
+  async function handleLogout() {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', style: 'destructive', onPress: async () => { await logout(); } },
+    ]);
+  }
 
-  const { data: fetchedSettings, isLoading } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => settingsApi.get().then(r => r.data.data).catch(() => null),
-  });
-
-  const settings = fetchedSettings || defaultSettings;
-
-  const { mutate: updateSettings } = useMutation({
-    mutationFn: (newSettings: object) => settingsApi.update(newSettings).catch(() => ({ data: { data: { ...settings, ...newSettings } } })),
-    onSuccess: (res) => {
-      queryClient.setQueryData(['settings'], res.data.data);
-    },
-  });
-
-  const toggleVal = (key: string, currentVal: boolean) => {
-    updateSettings({ [key]: !currentVal });
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    // AppNavigator automatically swaps the navigation stack to Auth when user logs out.
-  };
-
-  const toggleTab = (id: string) => {
-    setExpandedTabs(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const menuItems = [
-    { id: '1', title: 'Edit Profile', icon: 'account-outline', route: 'EditProfile' },
-    { id: '2', title: 'Activity History', icon: 'history', route: 'ActivityHistory' },
-    { id: '3', title: 'Goals', icon: 'flag-outline', route: 'Goals' },
-    { id: '4', title: 'Reminders', icon: 'bell-outline', type: 'accordion' },
-    { id: '5', title: 'Connected Apps', icon: 'link-variant', type: 'accordion' },
-    { id: '6', title: 'Settings', icon: 'cog-outline', route: 'Settings' },
-    { id: '7', title: 'Logout', icon: 'logout', route: 'Logout', isDestructive: true },
-  ];
-
-  const renderAccordionContent = (item: any) => {
-    if (item.title === 'Reminders') {
-      if (isLoading) return <ActivityIndicator size="small" color="#635BFF" style={{ padding: 16 }} />;
-      return (
-        <View style={[styles.accordionContent, { backgroundColor: isDarkMode ? colors.background : '#FBFBFF' }]}>
-          <View style={styles.accordionRow}>
-            <Text style={[styles.accordionText, { color: colors.textPrimary }]}>Push Notifications</Text>
-            <Switch
-              trackColor={{ false: '#EAE6FF', true: '#635BFF' }}
-              thumbColor="#ffffff"
-              value={settings.notificationsEnabled}
-              onValueChange={() => toggleVal('notificationsEnabled', settings.notificationsEnabled)}
-            />
-          </View>
-          <View style={styles.accordionRow}>
-            <Text style={[styles.accordionText, { color: colors.textPrimary }]}>Daily Challenge Reminders</Text>
-            <Switch
-              trackColor={{ false: '#EAE6FF', true: '#635BFF' }}
-              thumbColor="#ffffff"
-              value={settings.dailyChallengeReminder}
-              onValueChange={() => toggleVal('dailyChallengeReminder', settings.dailyChallengeReminder)}
-              disabled={!settings.notificationsEnabled}
-            />
-          </View>
-          <View style={styles.accordionRow}>
-            <Text style={[styles.accordionText, { color: colors.textPrimary }]}>Sedentary Alert</Text>
-            <Switch
-              trackColor={{ false: '#EAE6FF', true: '#635BFF' }}
-              thumbColor="#ffffff"
-              value={settings.breakReminders}
-              onValueChange={() => toggleVal('breakReminders', settings.breakReminders)}
-            />
-          </View>
-        </View>
-      );
-    }
-    
-    if (item.title === 'Connected Apps') {
-      return (
-        <View style={[styles.accordionContent, { backgroundColor: isDarkMode ? colors.background : '#FBFBFF' }]}>
-          <View style={styles.accordionRow}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-              <Icon name="apple" size={20} color={colors.textPrimary} />
-              <Text style={[styles.accordionText, { color: colors.textPrimary }]}>Apple Health</Text>
-            </View>
-            <Switch trackColor={{ false: '#EAE6FF', true: '#635BFF' }} thumbColor="#ffffff" value={appleHealthEnabled} onValueChange={setAppleHealthEnabled} />
-          </View>
-          <View style={styles.accordionRow}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-              <Icon name="google-fit" size={20} color={colors.textPrimary} />
-              <Text style={[styles.accordionText, { color: colors.textPrimary }]}>Google Fit</Text>
-            </View>
-            <Switch trackColor={{ false: '#EAE6FF', true: '#635BFF' }} thumbColor="#ffffff" value={googleFitEnabled} onValueChange={setGoogleFitEnabled} />
-          </View>
-        </View>
-      );
-    }
-    return null;
-  };
+  function handleMenuPress(item: typeof MENU_ITEMS[0]) {
+    if (item.isDestructive) handleLogout();
+    else if (item.route) navigation.navigate(item.route);
+  }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#635BFF" />
-      
-      {/* Purple Header Block */}
-      <View style={styles.headerBlock}>
-        <View style={styles.headerContent}>
-          <View style={styles.avatarWrap}>
-            <Icon name="account" size={60} color="#635BFF" />
-          </View>
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user?.fullName || 'Alex'}</Text>
-            <Text style={styles.userLevel}>Level 6</Text>
-            
-            <View style={styles.progressWrap}>
-              <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: '60%' }]} />
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#6C3AE0" />
+
+      {/* ── PURPLE HERO HEADER ── */}
+      <View style={styles.hero}>
+        <SafeAreaView>
+          <View style={styles.heroContent}>
+
+            {/* Row: avatar + info + edit icon */}
+            <View style={styles.heroRow}>
+              {/* Avatar */}
+              {user?.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarWrap}>
+                  <AvatarIcon size={64} bgColor="#EAE6FF" personColor="#6C3AE0" />
+                </View>
+              )}
+
+              {/* Name + level */}
+              <View style={styles.heroInfo}>
+                <Text style={styles.heroName}>{name}</Text>
+                <Text style={styles.heroLevel}>Level {level}</Text>
               </View>
-              <Text style={styles.progressText}>1,250/2,000</Text>
+
+              {/* Edit icon — top right */}
+              <TouchableOpacity
+                style={styles.editBtn}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('EditProfile')}
+              >
+                <Ionicons name="create-outline" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
             </View>
+
+            {/* XP bar */}
+            <View style={styles.xpRow}>
+              <View style={styles.xpBarBg}>
+                <View style={[styles.xpBarFill, { width: `${xpPct * 100}%` }]} />
+              </View>
+              <Text style={styles.xpLabel}>{xp.toLocaleString()} / {xpGoal.toLocaleString()} XP</Text>
+            </View>
+
           </View>
-        </View>
+        </SafeAreaView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.menuContainer, { backgroundColor: colors.card, shadowColor: colors.text }]}>
-          {menuItems.map((item, index) => {
-            const isLast = index === menuItems.length - 1;
-            const isExpanded = expandedTabs[item.id];
-            
-            return (
-              <View key={item.id}>
-                <TouchableOpacity 
-                  style={[styles.menuRow, isLast && !isExpanded && styles.menuRowLast, { borderBottomColor: isDarkMode ? colors.border : '#F7F7FA' }]}
-                  onPress={() => {
-                    if (item.isDestructive) handleLogout();
-                    else if (item.type === 'accordion') toggleTab(item.id);
-                    else navigation.navigate(item.route as any);
-                  }}
-                >
-                  <View style={styles.menuLeft}>
-                    <Icon name={item.icon} size={24} color={item.isDestructive ? "#EF4444" : colors.textPrimary} />
-                    <Text style={[styles.menuTitle, { color: colors.textPrimary }, item.isDestructive && {color: "#EF4444"}]}>{item.title}</Text>
-                  </View>
-                  {item.type === 'accordion' ? (
-                    <Icon name={isExpanded ? "chevron-up" : "chevron-down"} size={24} color="#9890B8" />
-                  ) : (
-                    <Icon name="chevron-right" size={24} color="#9890B8" />
-                  )}
-                </TouchableOpacity>
-                {item.type === 'accordion' && isExpanded && renderAccordionContent(item)}
+      {/* ── MENU LIST ── */}
+      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+        {MENU_ITEMS.map((item, idx) => {
+          const isLast = idx === MENU_ITEMS.length - 1;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.menuRow, !isLast && styles.menuRowBorder]}
+              activeOpacity={0.7}
+              onPress={() => handleMenuPress(item)}
+            >
+              <Text style={[styles.menuTitle, item.isDestructive && styles.menuTitleDestructive]}>
+                {item.title}
+              </Text>
+              <View style={styles.menuRight}>
+                {item.value && (
+                  <Text style={styles.menuValue}>{item.value}</Text>
+                )}
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={item.isDestructive ? '#EF4444' : '#C0BDCC'}
+                />
               </View>
-            );
-          })}
-        </View>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F7F7FA' },
-  headerBlock: {
-    backgroundColor: '#635BFF',
-    paddingHorizontal: 32,
-    paddingTop: 32,
-    paddingBottom: 48,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+  root: { flex: 1, backgroundColor: '#FFFFFF' },
+
+  // ── Hero ──
+  hero: { backgroundColor: '#6C3AE0' },
+  heroContent: {
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'android' ? 16 : 8,
+    paddingBottom: 24,
   },
-  headerContent: {
+  heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 64, height: 64,
+    borderRadius: 32,
+    borderWidth: 3, borderColor: '#FFFFFF',
+    marginRight: 16,
+    backgroundColor: '#EAE6FF',
   },
   avatarWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 64, height: 64,
+    borderRadius: 32,
+    borderWidth: 3, borderColor: '#FFFFFF',
+    marginRight: 16,
+    overflow: 'hidden',
     backgroundColor: '#EAE6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 24,
   },
-  userInfo: {
-    flex: 1,
+  heroInfo:  { flex: 1 },
+  heroName:  { fontFamily: 'Poppins-Bold',   fontSize: 24, color: '#FFFFFF', marginBottom: 2 },
+  heroLevel: { fontFamily: 'Poppins-Medium', fontSize: 14, color: 'rgba(255,255,255,0.75)' },
+  editBtn:   { padding: 8 },
+
+  // XP bar
+  xpRow:     { gap: 8 },
+  xpBarBg: {
+    height: 8,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 4,
+    overflow: 'hidden',
   },
-  userName: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 24,
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  userLevel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: '#EAE6FF',
-    marginBottom: 12,
-  },
-  progressWrap: {
-    alignItems: 'flex-end',
-  },
-  progressBarBg: {
-    width: '100%',
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressBarFill: {
+  xpBarFill: {
     height: '100%',
     backgroundColor: '#F59E0B',
-    borderRadius: 2,
+    borderRadius: 4,
   },
-  progressText: {
+  xpLabel: {
     fontFamily: 'Poppins-Medium',
     fontSize: 12,
-    color: '#EAE6FF',
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'right',
   },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 100, // Space for bottom tab
-  },
-  menuContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
+
+  // ── Menu ──
+  listContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 120 },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F7F7FA',
+    paddingVertical: 18,
   },
-  menuRowLast: {
-    borderBottomWidth: 0,
-  },
-  menuLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  menuTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
-    color: '#1A1A2E',
-  },
-  accordionContent: {
-    backgroundColor: '#FBFBFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    marginTop: -8,
-  },
-  accordionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  accordionText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: '#1A1A2E',
-  },
+  menuRowBorder: { borderBottomWidth: 1, borderBottomColor: '#F0EFF5' },
+  menuTitle:            { fontFamily: 'Poppins-Medium', fontSize: 15, color: '#1A1A2E' },
+  menuTitleDestructive: { color: '#EF4444' },
+  menuRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  menuValue: { fontFamily: 'Poppins-Medium', fontSize: 14, color: '#1A1A2E' },
 });
